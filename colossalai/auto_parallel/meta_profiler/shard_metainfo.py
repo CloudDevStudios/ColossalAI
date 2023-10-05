@@ -83,10 +83,13 @@ class ShardMetaInfo:
         elif isinstance(sharding_spec, (list, tuple)):
             data = operation_data.data
             assert isinstance(data, (list, tuple)), f"Data Should be list or tuple, but got {type(data)}."
-            assert len(data) == len(sharding_spec), f"Length of data and sharding spec should be the same."
-            sharded_data = []
-            for d, s in zip(data, sharding_spec):
-                sharded_data.append(torch.zeros(s.get_sharded_shape_per_device(), device="meta"))
+            assert len(data) == len(
+                sharding_spec
+            ), "Length of data and sharding spec should be the same."
+            sharded_data = [
+                torch.zeros(s.get_sharded_shape_per_device(), device="meta")
+                for d, s in zip(data, sharding_spec)
+            ]
             op_data = OperationData(name=operation_data.name, data=sharded_data, type=operation_data.type)
         else:
             raise ValueError(f"Sharding spec should be ShardingSpec or list, but got {type(sharding_spec)}.")
@@ -98,20 +101,17 @@ class ShardMetaInfo:
         Compute meta info based on sharding strategy and the given target function.
         """
         assert meta_register.has(self._target.__class__) or meta_register.has(self._target), \
-            f"Meta info for {self._target} is not registered."
+                f"Meta info for {self._target} is not registered."
         if meta_register.has(self._target.__class__):
             # module
             meta_func = meta_register.get(self._target.__class__)
 
-            # check whether the target in the list that we don't need to save activation
-            save_fwd_in = self._target.__class__ not in NO_SAVE_ACTIVATION
         else:
             # function
             meta_func = meta_register.get(self._target)
 
-            # check whether the target in the list that we don't need to save activation
-            save_fwd_in = self._target.__class__ not in NO_SAVE_ACTIVATION
-
+        # check whether the target in the list that we don't need to save activation
+        save_fwd_in = self._target.__class__ not in NO_SAVE_ACTIVATION
         # construct args for meta_func
         args = [self.compute_sharded_opdata(k, v) for k, v in self._strategy.sharding_specs.items()]
 

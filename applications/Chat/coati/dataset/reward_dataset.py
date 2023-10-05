@@ -52,8 +52,7 @@ class RmStaticDataset(Dataset):
         }
 
     def __len__(self):
-        length = self.chosen["input_ids"].shape[0]
-        return length
+        return self.chosen["input_ids"].shape[0]
 
     def __getitem__(self, idx):
         return self.chosen["input_ids"][idx], self.chosen["attention_mask"][idx], \
@@ -106,8 +105,7 @@ class HhRlhfDataset(Dataset):
         }
 
     def __len__(self):
-        length = self.chosen["input_ids"].shape[0]
-        return length
+        return self.chosen["input_ids"].shape[0]
 
     def __getitem__(self, idx):
         return self.chosen["input_ids"][idx], self.chosen["attention_mask"][idx], \

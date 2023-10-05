@@ -84,15 +84,15 @@ def get_strategy_from_args(strategy: str):
 
 
 def get_tokenizer_from_args(model: str, **kwargs):
-    if model == 'gpt2':
-        tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-    elif model == 'bloom':
+    if model == 'bloom':
         tokenizer = BloomTokenizerFast.from_pretrained('bigscience/bloom-560m')
-    elif model == 'opt':
-        tokenizer = AutoTokenizer.from_pretrained("facebook/opt-350m")
+    elif model == 'gpt2':
+        tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
     elif model == 'llama':
         pretrain_path = kwargs["pretrain"]
         tokenizer = AutoTokenizer.from_pretrained(pretrain_path)
+    elif model == 'opt':
+        tokenizer = AutoTokenizer.from_pretrained("facebook/opt-350m")
     else:
         raise ValueError(f'Unsupported model "{model}"')
 
@@ -109,8 +109,7 @@ def set_dist_env(env_info: Dict[str, str]):
 
 
 def get_model_numel(model: nn.Module) -> int:
-    numel = sum(p.numel() for p in model.parameters())
-    return numel
+    return sum(p.numel() for p in model.parameters())
 
 
 def get_receivers_per_sender(sender_idx: int, num_senders: int, num_receivers: int, allow_idle_sender: bool) -> list:
@@ -118,9 +117,9 @@ def get_receivers_per_sender(sender_idx: int, num_senders: int, num_receivers: i
     if num_senders <= num_receivers or allow_idle_sender:
         # a sender will send data to one or more than one receivers
         # a receiver only has one sender
-        for i in range(num_receivers):
-            if i % num_senders == sender_idx:
-                target_receivers.append(i)
+        target_receivers.extend(
+            i for i in range(num_receivers) if i % num_senders == sender_idx
+        )
     else:
         # a sender will send data to one receiver
         # a receiver may have more than one sender

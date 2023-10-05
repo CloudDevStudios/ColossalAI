@@ -29,5 +29,4 @@ class Actor(LoRAModule):
     ) -> torch.Tensor:
         """Returns model output.
         """
-        output = self.model(input_ids, attention_mask=attention_mask, **model_kwargs)
-        return output
+        return self.model(input_ids, attention_mask=attention_mask, **model_kwargs)

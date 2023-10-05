@@ -65,7 +65,7 @@ class LoRAConstructor:
                 assert layer_prefix_2 == layer_prefix, "unmatched (state_dict, config_dict) pair"
                 lora_B = v
                 weight_data_increase = self._compute(lora_A, lora_B, config)
-                state_dict_increase[layer_prefix + '.weight'] = weight_data_increase
+                state_dict_increase[f'{layer_prefix}.weight'] = weight_data_increase
                 lora_A, lora_B, layer_prefix = None, None, None
             else:
                 raise ValueError('unexpected key')

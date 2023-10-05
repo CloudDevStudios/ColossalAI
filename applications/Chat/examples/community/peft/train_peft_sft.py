@@ -43,8 +43,11 @@ def train(args):
         print('Warning: currently only bloom is tested, gpt2,llama and opt are not tested')
         model = AutoModelForCausalLM.from_pretrained(args.pretrain).to(torch.cuda.current_device())
         # if the args.save_path exists and args.save_path+'/adapter_config.json' exists, we'll load the adapter_config.json
-        if os.path.exists(args.save_path) and os.path.exists(args.save_path + '/adapter_config.json') \
-                and os.path.exists(args.save_path + '/adapter_model.bin'):
+        if (
+            os.path.exists(args.save_path)
+            and os.path.exists(f'{args.save_path}/adapter_config.json')
+            and os.path.exists(f'{args.save_path}/adapter_model.bin')
+        ):
             print("loading from saved peft model ", args.save_path)
             model = PeftModel.from_pretrained(model, args.save_path)
         else:

@@ -35,13 +35,13 @@ class ColoProxy(Proxy):
             impl = cls._func_dispatch.pop(orig_method)    # avoid recursion
             proxy = impl(*args, **kwargs)
             cls._func_dispatch[orig_method] = impl
-            return proxy
         else:
             proxy = cls.from_torch_proxy(super().__torch_function__(orig_method, types, args, kwargs))
             unwrap_fn = lambda p: p.meta_data if isinstance(p, ColoProxy) else p
             if proxy.meta_data is None:
                 proxy.meta_data = orig_method(*tree_map(unwrap_fn, args), **tree_map(unwrap_fn, kwargs))
-            return proxy
+
+        return proxy
 
     @classmethod
     def from_torch_proxy(cls, proxy: Proxy):
@@ -77,12 +77,7 @@ class ColoProxy(Proxy):
         return proxy
 
     def __contains__(self, key):
-        if self.node.op == "placeholder":
-            # this is used to handle like
-            # if x in kwargs
-            # we don't handle this case for now
-            return False
-        return super().__contains__(key)
+        return False if self.node.op == "placeholder" else super().__contains__(key)
 
     def __isinstancecheck__(self, type):
         return isinstance(self.meta_data, type)

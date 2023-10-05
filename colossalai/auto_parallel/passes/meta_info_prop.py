@@ -14,9 +14,7 @@ from colossalai.fx.profiler import GraphInfo
 
 
 def _normalize_tuple(x):
-    if not isinstance(x, tuple):
-        return (x,)
-    return x
+    return (x, ) if not isinstance(x, tuple) else x
 
 
 @compatibility(is_backward_compatible=False)

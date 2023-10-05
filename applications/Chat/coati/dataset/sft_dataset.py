@@ -99,8 +99,7 @@ class SFTDataset(Dataset):
             _preprocess(sources, targets, tokenizer, max_length)
 
     def __len__(self):
-        length = self.input_ids.shape[0]
-        return length
+        return self.input_ids.shape[0]
 
     def __getitem__(self, idx):
         return dict(input_ids=self.input_ids[idx],
@@ -141,8 +140,7 @@ class SupervisedDataset(Dataset):
             _preprocess(sources, targets, tokenizer, max_length)
 
     def __len__(self):
-        length = self.input_ids.shape[0]
-        return length
+        return self.input_ids.shape[0]
 
     def __getitem__(self, idx):
         return dict(input_ids=self.input_ids[idx],

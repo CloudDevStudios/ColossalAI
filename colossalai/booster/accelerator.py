@@ -39,7 +39,6 @@ class Accelerator:
             #     local_rank = EnvTable().get_local_rank()
             #     torch.cuda.set_device(torch.device(f'cuda:{local_rank}'))
             torch.cuda.set_device(torch.device('cuda'))
-            pass
         else:
             raise ValueError(f"Device {self.device} is not supported yet")
 

@@ -64,7 +64,7 @@ class Evaluator(object):
             elif metric == "CHRF":
                 return metrics.chrf_score(preds=predicts_list, targets=targets_list, language=language)
             else:
-                raise ValueError(f"Unexpected metric")
+                raise ValueError("Unexpected metric")
 
         answers_per_category = get_data_per_category(answers, list(self.params.keys()))
         targets_per_category = get_data_per_category(targets, list(self.params.keys()))
@@ -117,7 +117,9 @@ class Evaluator(object):
 
         for task in self.unieval_metric_stats:
             if self.path_for_UniEval is None:
-                raise Exception(f"Please specify the path for UniEval model in the config file!")
+                raise Exception(
+                    "Please specify the path for UniEval model in the config file!"
+                )
 
             if self.path_for_UniEval.get(task, None) is None:
                 raise Exception(f"Please specify the model path for task {task} in the config file!")

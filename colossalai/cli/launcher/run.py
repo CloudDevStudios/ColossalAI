@@ -37,7 +37,7 @@ def fetch_hostfile(hostfile_path: str, ssh_port: int) -> HostInfoList:
     with open(hostfile_path, 'r') as fd:
         device_pool = HostInfoList()
 
-        for line in fd.readlines():
+        for line in fd:
             line = line.strip()
             if line == '':
                 # skip empty lines
@@ -167,7 +167,7 @@ def get_launch_command(
         default_torchrun_rdzv_args = dict(master_addr=master_addr, master_port=master_port)
 
         # update rdzv arguments
-        for key in default_torchrun_rdzv_args.keys():
+        for key in default_torchrun_rdzv_args:
             if key in extra_launch_args:
                 value = extra_launch_args.pop(key)
                 default_torchrun_rdzv_args[key] = value

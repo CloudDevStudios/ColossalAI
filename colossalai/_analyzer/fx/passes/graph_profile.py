@@ -28,9 +28,7 @@ def _denormalize_tuple(t: Tuple[int, ...]) -> Tuple[int, ...]:
 
 
 def _normalize_tuple(x):
-    if not isinstance(x, tuple):
-        return (x,)
-    return x
+    return (x, ) if not isinstance(x, tuple) else x
 
 
 def _current_device(module):
@@ -99,10 +97,10 @@ class GraphProfiler(torch.fx.Interpreter):
         Returns:
             Dict[Node, Any]: The initial environment for execution
         """
-        initial_env = {}
-        for n in self.module.graph.nodes:
-            initial_env[n] = _denormalize_tuple(MetaInfo(n).outputs)
-        return initial_env
+        return {
+            n: _denormalize_tuple(MetaInfo(n).outputs)
+            for n in self.module.graph.nodes
+        }
 
     def propagate(self, *args, device=None):
         """

@@ -60,11 +60,10 @@ class ProcessGroupManager:
         Args:
             name (str): name of the process group
         """
-        if name in self.pg_store:
-            dist.destroy_process_group(self.pg_store[name])
-            del self.pg_store[name]
-        else:
+        if name not in self.pg_store:
             raise ValueError(f'Process group {name} does not exist.')
+        dist.destroy_process_group(self.pg_store[name])
+        del self.pg_store[name]
 
     def destroy_all(self) -> None:
         """

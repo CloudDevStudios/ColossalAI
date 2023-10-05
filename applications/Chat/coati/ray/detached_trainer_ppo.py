@@ -83,7 +83,7 @@ class DetachedPPOTrainer(DetachedTrainer):
             actor_numel = get_model_numel(self.actor)
             critic_numel = get_model_numel(self.critic)
             evaluator = TrainerPerformanceEvaluator(actor_numel, critic_numel)
-            callbacks = callbacks + [evaluator]
+            callbacks += [evaluator]
 
         if isinstance(self.strategy, (LowLevelZeroStrategy, GeminiStrategy)):
             self.actor_optim = HybridAdam(self.actor.parameters(), lr=1e-7)
@@ -93,7 +93,7 @@ class DetachedPPOTrainer(DetachedTrainer):
             self.critic_optim = Adam(self.critic.parameters(), lr=1e-7)
 
         (self.actor, self.actor_optim), (self.critic, self.critic_optim) = \
-            self.strategy.prepare((self.actor, self.actor_optim), (self.critic, self.critic_optim))
+                self.strategy.prepare((self.actor, self.actor_optim), (self.critic, self.critic_optim))
 
         # configure trainer
         self.actor_loss_fn = PolicyLoss(eps_clip)
@@ -117,29 +117,39 @@ class DetachedPPOTrainer(DetachedTrainer):
         if not fully_update:
             config['requires_grad_only'] = True
         self.update_target_holder_list()
-        # mark start, ensure order
-        tasks = []
-        for target_holder in self.target_holder_list:
-            tasks.append(target_holder.update_experience_maker.remote(chunk_start=True, fully_update=fully_update))
+        tasks = [
+            target_holder.update_experience_maker.remote(
+                chunk_start=True, fully_update=fully_update
+            )
+            for target_holder in self.target_holder_list
+        ]
         ray.get(tasks)
         # sending loop
         tasks = []
 
         for state_dict_shard in self._get_model_state_dict_shard(self.actor, fully_update=fully_update, **config):
-            for target_holder in self.target_holder_list:
-                tasks.append(
-                    target_holder.update_experience_maker.remote(
-                        new_actor_state_dict=state_dict_shard,
-                        new_actor_lora_config_dict=self._get_model_lora_config_dict(self.actor),
-                        fully_update=fully_update))
+            tasks.extend(
+                target_holder.update_experience_maker.remote(
+                    new_actor_state_dict=state_dict_shard,
+                    new_actor_lora_config_dict=self._get_model_lora_config_dict(
+                        self.actor
+                    ),
+                    fully_update=fully_update,
+                )
+                for target_holder in self.target_holder_list
+            )
         # sending loop
         for state_dict_shard in self._get_model_state_dict_shard(self.critic, fully_update=fully_update, **config):
-            for target_holder in self.target_holder_list:
-                tasks.append(
-                    target_holder.update_experience_maker.remote(
-                        new_critic_state_dict=state_dict_shard,
-                        new_critic_lora_config_dict=self._get_model_lora_config_dict(self.critic),
-                        fully_update=fully_update))
+            tasks.extend(
+                target_holder.update_experience_maker.remote(
+                    new_critic_state_dict=state_dict_shard,
+                    new_critic_lora_config_dict=self._get_model_lora_config_dict(
+                        self.critic
+                    ),
+                    fully_update=fully_update,
+                )
+                for target_holder in self.target_holder_list
+            )
         ray.get(tasks)
         # mark end
         for target_holder in self.target_holder_list:

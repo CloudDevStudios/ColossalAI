@@ -62,7 +62,7 @@ class EasySupervisedDataset(Dataset):
                 targets.append(line[sep_index + 3:] + tokenizer.eos_token)
             else:
                 sources.append(line)
-                targets.append("" + tokenizer.eos_token)
+                targets.append(f"{tokenizer.eos_token}")
         data_dict = preprocess(sources, targets, tokenizer, max_length)
 
         self.input_ids = data_dict["input_ids"]
@@ -150,8 +150,7 @@ class EasyRewardDataset(Dataset):
             })
 
     def __len__(self):
-        length = len(self.chosen)
-        return length
+        return len(self.chosen)
 
     def __getitem__(self, idx):
         return self.chosen[idx]["input_ids"], self.chosen[idx]["attention_mask"], self.reject[idx][
@@ -183,8 +182,10 @@ class EasySFTDataset(Dataset):
                 encoded_ids = tokenizer.encode(line)
                 #if the encoded_ids is longer than max_length, then split it into several parts
                 if len(encoded_ids) > max_length:
-                    for i in range(0, len(encoded_ids), max_length):
-                        raw_input_ids.append(encoded_ids[i:i + max_length])
+                    raw_input_ids.extend(
+                        encoded_ids[i : i + max_length]
+                        for i in range(0, len(encoded_ids), max_length)
+                    )
                 else:
                     raw_input_ids.append(encoded_ids)
 

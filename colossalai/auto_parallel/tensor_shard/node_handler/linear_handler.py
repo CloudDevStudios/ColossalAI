@@ -150,13 +150,14 @@ class LinearModuleHandler(MetaInfoModuleHandler):
 
     def get_strategy_generator(self) -> List[StrategyGenerator]:
         op_data_mapping = self.get_operation_data_mapping()
-        generators = []
-        generators.append(
-            LinearProjectionStrategyGenerator(op_data_mapping,
-                                              self.device_mesh,
-                                              linear_projection_type='linear',
-                                              solver_perference=self.solver_perference))
-        return generators
+        return [
+            LinearProjectionStrategyGenerator(
+                op_data_mapping,
+                self.device_mesh,
+                linear_projection_type='linear',
+                solver_perference=self.solver_perference,
+            )
+        ]
 
     def get_operation_data_mapping(self) -> Dict[str, OperationData]:
         # use transposed shape for strategies
@@ -196,13 +197,11 @@ class LinearModuleHandler(MetaInfoModuleHandler):
         # switch the dimensions of the transposed weight
         strategy = _update_sharding_spec_for_transposed_weight_for_linear(strategy=strategy, weight_name='weight')
 
-        # create multiple sharding strategies for the inputs
-        # as input can be multi-dimensional and the partition dim is only 2D,
-        # we need to map the partition at dim 0 to one of the first few dimensions of the input
-        strategies = _convert_logical_sharding_to_physical_sharding_spec_for_linear(strategy=strategy,
-                                                                                    input_name=str(self.node.args[0]),
-                                                                                    output_name=str(self.node))
-        return strategies
+        return _convert_logical_sharding_to_physical_sharding_spec_for_linear(
+            strategy=strategy,
+            input_name=str(self.node.args[0]),
+            output_name=str(self.node),
+        )
 
 
 @operator_registry.register(F.linear)
@@ -213,10 +212,11 @@ class LinearFunctionHandler(MetaInfoNodeHandler):
 
     def get_strategy_generator(self) -> List[StrategyGenerator]:
         op_data_mapping = self.get_operation_data_mapping()
-        generators = []
-        generators.append(
-            LinearProjectionStrategyGenerator(op_data_mapping, self.device_mesh, linear_projection_type='linear'))
-        return generators
+        return [
+            LinearProjectionStrategyGenerator(
+                op_data_mapping, self.device_mesh, linear_projection_type='linear'
+            )
+        ]
 
     def get_operation_data_mapping(self) -> Dict[str, OperationData]:
         # use transposed shape for strategies
@@ -266,10 +266,8 @@ class LinearFunctionHandler(MetaInfoNodeHandler):
         # switch the dimensions of the transposed weight
         strategy = _update_sharding_spec_for_transposed_weight_for_linear(strategy=strategy,
                                                                           weight_name=str(self.node.args[1]))
-        # create multiple sharding strategies for the inputs
-        # as input can be multi-dimensional and the partition dim is only 2D,
-        # we need to map the partition at dim 0 to one of the first few dimensions of the input
-        strategies = _convert_logical_sharding_to_physical_sharding_spec_for_linear(strategy=strategy,
-                                                                                    input_name=str(self.node.args[0]),
-                                                                                    output_name=str(self.node))
-        return strategies
+        return _convert_logical_sharding_to_physical_sharding_spec_for_linear(
+            strategy=strategy,
+            input_name=str(self.node.args[0]),
+            output_name=str(self.node),
+        )

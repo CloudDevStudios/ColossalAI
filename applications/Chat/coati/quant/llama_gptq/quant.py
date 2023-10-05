@@ -109,9 +109,7 @@ class Quantizer(nn.Module):
             self.zero = self.zero.unsqueeze(0)
 
     def quantize(self, x):
-        if self.ready():
-            return quantize(x, self.scale, self.zero, self.maxq)
-        return x
+        return quantize(x, self.scale, self.zero, self.maxq) if self.ready() else x
 
     def enabled(self):
         return self.maxq > 0
@@ -276,8 +274,14 @@ def make_quant(module, names, bits, groupsize, name=''):
         return
     for attr in dir(module):
         tmp = getattr(module, attr)
-        name1 = name + '.' + attr if name != '' else attr
+        name1 = f'{name}.{attr}' if name != '' else attr
         if name1 in names:
             setattr(module, attr, QuantLinear(bits, groupsize, tmp.in_features, tmp.out_features))
     for name1, child in module.named_children():
-        make_quant(child, names, bits, groupsize, name + '.' + name1 if name != '' else name1)
+        make_quant(
+            child,
+            names,
+            bits,
+            groupsize,
+            f'{name}.{name1}' if name != '' else name1,
+        )

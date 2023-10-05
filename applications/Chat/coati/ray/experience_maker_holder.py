@@ -52,7 +52,7 @@ class ExperienceMakerHolder:
         if env_info:
             set_dist_env(env_info=env_info)
         self.target_trainer_list = []
-        assert len(detached_trainer_name_list) > 0
+        assert detached_trainer_name_list
         self._detached_trainer_name_list = detached_trainer_name_list
         self.strategy = strategy_fn()
         self.buffer_cpu_offload = buffer_cpu_offload
@@ -68,7 +68,7 @@ class ExperienceMakerHolder:
             reward_model_numel = get_model_numel(reward_model)
             evaluator = ExperienceMakerPerformanceEvaluator(actor_numel, critic_numel, initial_model_numel,
                                                             reward_model_numel)
-            callbacks = callbacks + [evaluator]
+            callbacks += [evaluator]
 
         actor, critic, reward_model, initial_model = self.strategy.prepare(actor, critic, reward_model, initial_model)
         self.experience_maker = NaiveExperienceMaker(actor, critic, reward_model, initial_model, self.kl_coef)

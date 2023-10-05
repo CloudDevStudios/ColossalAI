@@ -14,58 +14,54 @@ def main(args):
     # load config
     config = jload(args.config_file)
 
-    if config["language"] in ["cn", "en"]:
-        # get metric settings for all categories
-        metrics_per_category = {}
-        for category in config["category"].keys():
-            metrics_all = {}
-            for metric_type, metrics in config["category"][category].items():
-                metrics_all[metric_type] = metrics
-            metrics_per_category[category] = metrics_all
-
-        battle_prompt = None
-        if args.battle_prompt_file:
-            battle_prompt = jload(args.battle_prompt_file)
-
-        gpt_evaluation_prompt = None
-        if args.gpt_evaluation_prompt_file:
-            gpt_evaluation_prompt = jload(args.gpt_evaluation_prompt_file)
-
-        if len(args.model_name_list) == 2 and not battle_prompt:
-            raise Exception("No prompt file for battle provided. Please specify the prompt file for battle!")
-
-        if len(args.model_name_list) == 1 and not gpt_evaluation_prompt:
-            raise Exception(
-                "No prompt file for gpt evaluation provided. Please specify the prompt file for gpt evaluation!")
-
-        if args.gpt_model == "text-davinci-003" and args.gpt_with_reference:
-            raise Exception(
-                "GPT evaluation with reference is not supported for text-davinci-003. You should specify chat models such as gpt-3.5-turbo or gpt-4."
-            )
-
-        # initialize evaluator
-        evaluator = Evaluator(metrics_per_category, battle_prompt, gpt_evaluation_prompt, args.gpt_model,
-                              config["language"], config.get("path_for_UniEval", None), args.gpt_with_reference)
-        if len(args.model_name_list) == 2:
-            answers1 = jload(args.answer_file_list[0])
-            answers2 = jload(args.answer_file_list[1])
-
-            assert len(answers1) == len(answers2), "The number of answers for two models should be equal!"
-
-            evaluator.battle(answers1=answers1, answers2=answers2)
-            evaluator.save(args.save_path, args.model_name_list)
-        elif len(args.model_name_list) == 1:
-            targets = jload(args.target_file)
-            answers = jload(args.answer_file_list[0])
-
-            assert len(targets) == len(answers), "The number of target answers and model answers should be equal!"
-
-            evaluator.evaluate(answers=answers, targets=targets)
-            evaluator.save(args.save_path, args.model_name_list)
-        else:
-            raise ValueError("Unsupported number of answer files and model names!")
-    else:
+    if config["language"] not in ["cn", "en"]:
         raise ValueError(f'Unsupported language {config["language"]}!')
+    # get metric settings for all categories
+    metrics_per_category = {}
+    for category in config["category"].keys():
+        metrics_all = dict(config["category"][category].items())
+        metrics_per_category[category] = metrics_all
+
+    battle_prompt = (
+        jload(args.battle_prompt_file) if args.battle_prompt_file else None
+    )
+    gpt_evaluation_prompt = None
+    if args.gpt_evaluation_prompt_file:
+        gpt_evaluation_prompt = jload(args.gpt_evaluation_prompt_file)
+
+    if len(args.model_name_list) == 2 and not battle_prompt:
+        raise Exception("No prompt file for battle provided. Please specify the prompt file for battle!")
+
+    if len(args.model_name_list) == 1 and not gpt_evaluation_prompt:
+        raise Exception(
+            "No prompt file for gpt evaluation provided. Please specify the prompt file for gpt evaluation!")
+
+    if args.gpt_model == "text-davinci-003" and args.gpt_with_reference:
+        raise Exception(
+            "GPT evaluation with reference is not supported for text-davinci-003. You should specify chat models such as gpt-3.5-turbo or gpt-4."
+        )
+
+    # initialize evaluator
+    evaluator = Evaluator(metrics_per_category, battle_prompt, gpt_evaluation_prompt, args.gpt_model,
+                          config["language"], config.get("path_for_UniEval", None), args.gpt_with_reference)
+    if len(args.model_name_list) == 2:
+        answers1 = jload(args.answer_file_list[0])
+        answers2 = jload(args.answer_file_list[1])
+
+        assert len(answers1) == len(answers2), "The number of answers for two models should be equal!"
+
+        evaluator.battle(answers1=answers1, answers2=answers2)
+        evaluator.save(args.save_path, args.model_name_list)
+    elif len(args.model_name_list) == 1:
+        targets = jload(args.target_file)
+        answers = jload(args.answer_file_list[0])
+
+        assert len(targets) == len(answers), "The number of target answers and model answers should be equal!"
+
+        evaluator.evaluate(answers=answers, targets=targets)
+        evaluator.save(args.save_path, args.model_name_list)
+    else:
+        raise ValueError("Unsupported number of answer files and model names!")
 
 
 if __name__ == '__main__':

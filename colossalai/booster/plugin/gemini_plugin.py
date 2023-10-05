@@ -255,7 +255,9 @@ class GeminiOptimizer(OptimizerWrapper):
                           error_if_nonfinite: bool = False,
                           *args,
                           **kwargs) -> Tensor:
-        warnings.warn(f'Gemini controls grad clipping by itself, so you should not use clip_grad_by_norm')
+        warnings.warn(
+            'Gemini controls grad clipping by itself, so you should not use clip_grad_by_norm'
+        )
 
     def clip_grad_by_value(self, clip_value: float, *args, **kwargs) -> None:
         raise NotImplementedError('Gemini does not support clip_grad_by_value')

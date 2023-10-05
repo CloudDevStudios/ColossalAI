@@ -93,7 +93,7 @@ class ColoTracer(Tracer):
     def call_module(self, m: torch.nn.Module, forward: Callable[..., Any], args: Tuple[Any, ...],
                     kwargs: Dict[str, Any]) -> Any:
         curr_dir = self.mod_dir
-        self.mod_dir = 'self.' + self.path_of_module(m)
+        self.mod_dir = f'self.{self.path_of_module(m)}'
         rst = super().call_module(m, forward, args, kwargs)
         self.mod_dir = curr_dir
         return rst
@@ -112,30 +112,16 @@ class ColoTracer(Tracer):
 
         proxy: ColoProxy = super().create_proxy(kind, target, args, kwargs, name, type_expr, proxy_factory_fn)
         unwrap_fn = lambda p: p.meta_data if isinstance(p, ColoProxy) else p
-        if kind == 'placeholder':
-            proxy.meta_data = self.meta_args[target] if target in self.meta_args else self.concrete_args.get(
-                _truncate_suffix(target), None)
-        elif kind == 'get_attr':
-            self.disable_module_getattr = True
-            try:
-                attr_itr = self.root
-                atoms = target.split(".")
-                for atom in atoms:
-                    attr_itr = getattr(attr_itr, atom)
-                proxy.meta_data = attr_itr
-            finally:
-                self.disable_module_getattr = False
-        elif kind == 'call_function':
+        if kind == 'call_function':
             proxy.meta_data = target(*tree_map(unwrap_fn, args), **tree_map(unwrap_fn, kwargs))
         elif kind == 'call_method':
             self.disable_module_getattr = True
             try:
                 if target == '__call__':
                     proxy.meta_data = unwrap_fn(args[0])(*tree_map(unwrap_fn, args[1:]), **tree_map(unwrap_fn, kwargs))
-                else:
-                    if target not in _TensorPropertyMethod:
-                        proxy._meta_data = getattr(unwrap_fn(args[0]), target)(*tree_map(unwrap_fn, args[1:]),
-                                                                               **tree_map(unwrap_fn, kwargs))
+                elif target not in _TensorPropertyMethod:
+                    proxy._meta_data = getattr(unwrap_fn(args[0]), target)(*tree_map(unwrap_fn, args[1:]),
+                                                                           **tree_map(unwrap_fn, kwargs))
             finally:
                 self.disable_module_getattr = False
         elif kind == 'call_module':
@@ -151,6 +137,19 @@ class ColoTracer(Tracer):
                     proxy.meta_data = mod.forward(*args, **kwargs)
             finally:
                 self.disable_module_getattr = False
+        elif kind == 'get_attr':
+            self.disable_module_getattr = True
+            try:
+                attr_itr = self.root
+                atoms = target.split(".")
+                for atom in atoms:
+                    attr_itr = getattr(attr_itr, atom)
+                proxy.meta_data = attr_itr
+            finally:
+                self.disable_module_getattr = False
+        elif kind == 'placeholder':
+            proxy.meta_data = self.meta_args[target] if target in self.meta_args else self.concrete_args.get(
+                _truncate_suffix(target), None)
         return proxy
 
     def create_node(self, *args, **kwargs) -> Node:
@@ -246,11 +245,11 @@ class ColoTracer(Tracer):
             torch.utils.checkpoint._checkpoint_without_reentrant = checkpoint
 
         # override the custom functions
-        ColoProxy._func_dispatch.update({k: v for k, v in self._custom_impl.items()})
+        ColoProxy._func_dispatch.update(dict(self._custom_impl.items()))
 
         # override the bias addition functions
         if self.bias_addition_split:
-            ColoProxy._func_dispatch.update({k: v for k, v in self._bias_addition_impl.items()})
+            ColoProxy._func_dispatch.update(dict(self._bias_addition_impl.items()))
 
         yield
 
@@ -304,22 +303,19 @@ class ColoTracer(Tracer):
         # https://github.com/pytorch/pytorch/pull/55888.
         for node in self.graph.nodes:
             if node.op == "placeholder":
-                # Removing default values for inputs as the forward pass will fail with them.
                 if node.target in non_concrete_arg_names:
                     node.args = ()
                     # Without this, torch.jit.script fails because the inputs type is Optional[torch.Tensor].
                     # It cannot infer on the attributes and methods the input should have, and fails.
                     node.type = torch.Tensor
-                # It is a concrete arg so it is not used and should be removed.
                 else:
                     if hasattr(torch.fx._symbolic_trace, "_assert_is_none"):
-                        # Newer versions of torch.fx emit an assert statement
-                        # for concrete arguments; delete those before we delete
-                        # the concrete arg.
-                        to_delete = []
-                        for user in node.users:
-                            if user.target == torch.fx._symbolic_trace._assert_is_none:
-                                to_delete.append(user)
+                        to_delete = [
+                            user
+                            for user in node.users
+                            if user.target
+                            == torch.fx._symbolic_trace._assert_is_none
+                        ]
                         for user in to_delete:
                             self.graph.erase_node(user)
 

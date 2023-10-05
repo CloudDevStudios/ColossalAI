@@ -56,10 +56,7 @@ def jload(f, mode="r"):
 
 def get_json_list(file_path):
     with open(file_path, 'r') as f:
-        json_list = []
-        for line in f:
-            json_list.append(json.loads(line))
-        return json_list
+        return [json.loads(line) for line in f]
 
 
 def get_data_per_category(data, categories):
@@ -80,16 +77,10 @@ def remove_punctuations(text: str) -> str:
     """
 
     punctuation = string.punctuation + hanzi.punctuation
-    punctuation = set([char for char in punctuation])
+    punctuation = set(list(punctuation))
     punctuation.difference_update(set("!@#$%&()<>?|,.\"'"))
 
-    out = []
-    for char in text:
-        if char in punctuation:
-            continue
-        else:
-            out.append(char)
-
+    out = [char for char in text if char not in punctuation]
     return "".join(out)
 
 
@@ -160,7 +151,7 @@ def analyze_automatic_results(results_path: str, save_path: str) -> None:
             model_name = file_name.split("_results.csv")[0]
             all_statistics[model_name] = read_automatic_results(results_path, file_name)
 
-    if len(list(all_statistics.keys())) == 0:
+    if not list(all_statistics.keys()):
         raise Exception(f'There are no csv files in the given directory "{results_path}"!')
 
     frame_all = {"model": [], "category": [], "metric": [], "score": []}
@@ -186,11 +177,7 @@ def analyze_automatic_results(results_path: str, save_path: str) -> None:
     frame_all = pd.DataFrame(frame_all)
     frame_all.to_csv(os.path.join(save_path, "automatic_evaluation_statistics.csv"))
 
-    for metric in tqdm.tqdm(
-            frame_per_metric.keys(),
-            desc=f"automatic metrics: ",
-            total=len(frame_per_metric.keys()),
-    ):
+    for metric in tqdm.tqdm(frame_per_metric.keys(), desc="automatic metrics: ", total=len(frame_per_metric.keys())):
         data = pd.DataFrame(frame_per_metric[metric])
 
         sns.set()

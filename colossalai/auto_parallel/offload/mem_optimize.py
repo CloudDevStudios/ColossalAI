@@ -40,13 +40,12 @@ def memory_optimize(model: torch.nn.Module,
         f"act_peak_mem={act_peak_mem:.3f} MB | max_param_mem={max_param_mem:.3f} MB | total_param_mem={total_param_mem:.3f}"
     )
 
-    if solver_name == 'syn':
-        gm = runtime_syn_offload_apply_pass(gm, region_manager.region_list)
-    elif solver_name == 'asyn':
+    if solver_name == 'asyn':
         gm = runtime_asyn_offload_apply_pass(gm, region_manager.region_list)
+    elif solver_name == 'syn':
+        gm = runtime_syn_offload_apply_pass(gm, region_manager.region_list)
     else:
         raise TypeError(f"Unknown solver name {solver_name}!")
 
     gm.recompile()
-    optimized_model = BaseOffloadModule(gm, region_manager, solver_name == 'syn')
-    return optimized_model
+    return BaseOffloadModule(gm, region_manager, solver_name == 'syn')

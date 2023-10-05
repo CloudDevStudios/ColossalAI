@@ -93,11 +93,7 @@ def sample_streamingly(model: nn.Module,
 
 
 def update_model_kwargs_fn(outputs: dict, **model_kwargs) -> dict:
-    if "past_key_values" in outputs:
-        model_kwargs["past"] = outputs["past_key_values"]
-    else:
-        model_kwargs["past"] = None
-
+    model_kwargs["past"] = outputs.get("past_key_values", None)
     # update token_type_ids with last value
     if "token_type_ids" in model_kwargs:
         token_type_ids = model_kwargs["token_type_ids"]
@@ -131,7 +127,7 @@ class ChatPromptProcessor:
         self.tokenizer = tokenizer
         self.context = context
         self.max_len = max_len
-        self.censored_words = set([word.lower() for word in censored_words])
+        self.censored_words = {word.lower() for word in censored_words}
         # These will be initialized after the first call of preprocess_prompt()
         self.context_len: Optional[int] = None
         self.dialogue_placeholder_len: Optional[int] = None

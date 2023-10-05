@@ -67,9 +67,7 @@ class DetachedReplayBuffer:
 
     @torch.no_grad()
     def _sample_and_erase(self) -> Experience:
-        ret = self.items.get(block=True)
-        return ret
+        return self.items.get(block=True)
 
     def get_length(self) -> int:
-        ret = self.items.qsize()
-        return ret
+        return self.items.qsize()

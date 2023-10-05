@@ -61,10 +61,7 @@ class ProcessGroupMesh:
         Returns:
             Union[int, Tuple[int, ...]]: Size of the target dimension or the whole process group mesh.
         """
-        if dim is None:
-            return self._shape
-        else:
-            return self._shape[dim]
+        return self._shape if dim is None else self._shape[dim]
 
     def coordinate(self, dim: Optional[int] = None) -> Union[int, Tuple[int, ...]]:
         """Get the coordinate of the process group mesh.
@@ -75,10 +72,7 @@ class ProcessGroupMesh:
         Returns:
             Union[int, Tuple[int, ...]]: Coordinate of the target dimension or the whole process group mesh.
         """
-        if dim is None:
-            return self._coord
-        else:
-            return self._coord[dim]
+        return self._coord if dim is None else self._coord[dim]
 
     @staticmethod
     def unravel(rank: int, shape: Tuple[int, ...]) -> Tuple[int, ...]:
@@ -147,10 +141,10 @@ class ProcessGroupMesh:
         Returns:
             List[Tuple[int, ...]]: Coordinates along the axis.
         """
-        coords_in_group = []
-        for idx in indices_at_axis:
-            coords_in_group.append(base_coord[:axis] + (idx,) + base_coord[axis + 1:])
-        return coords_in_group
+        return [
+            base_coord[:axis] + (idx,) + base_coord[axis + 1 :]
+            for idx in indices_at_axis
+        ]
 
     def create_group_along_axis(self,
                                 axis: int,
@@ -174,7 +168,10 @@ class ProcessGroupMesh:
         # use Cartesian product to generate all combinations of coordinates
         for base_coord in itertools.product(*[range(s) for s in reduced_shape]):
             coords_in_group = ProcessGroupMesh.get_coords_along_axis(base_coord, axis, indices_at_axis)
-            ranks_in_group = tuple([ProcessGroupMesh.ravel(coord, self._shape) for coord in coords_in_group])
+            ranks_in_group = tuple(
+                ProcessGroupMesh.ravel(coord, self._shape)
+                for coord in coords_in_group
+            )
             group = self.get_group(ranks_in_group, backend=backend)
             if self._rank in ranks_in_group:
                 target_group = group
@@ -196,7 +193,9 @@ class ProcessGroupMesh:
         """
         indices_at_axis = indices_at_axis or list(range(self._shape[axis]))
         coords_in_group = ProcessGroupMesh.get_coords_along_axis(self._coord, axis, indices_at_axis)
-        ranks_in_group = tuple([ProcessGroupMesh.ravel(coord, self._shape) for coord in coords_in_group])
+        ranks_in_group = tuple(
+            ProcessGroupMesh.ravel(coord, self._shape) for coord in coords_in_group
+        )
         if ranks_in_group not in self._ranks_to_group:
             # no need to cache it explicitly, since it will be cached in `create_group_along_axis`
             return self.create_group_along_axis(axis, indices_at_axis, backend=backend)

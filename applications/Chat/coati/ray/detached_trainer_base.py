@@ -84,7 +84,7 @@ class DetachedTrainer(ABC):
             self._on_epoch_end(epoch)
 
     def _learn_epoch(self, pbar: tqdm, data: List[Experience]) -> None:
-        is_warmup = len(data) == 0
+        is_warmup = not data
         for x in pbar:
             if self._debug:
                 print("[trainer] training step")
@@ -124,14 +124,14 @@ class DetachedTrainer(ABC):
     def buffer_append(self, experience: Experience):
         # called by ExperienceMakerHolder
         if self._debug:
-            print(f"[trainer]               receiving exp.")
+            print("[trainer]               receiving exp.")
         self.detached_replay_buffer.append(experience)
 
     @ray.method(concurrency_group="buffer_append")
     def buffer_extend(self, items: List[BufferItem]):
         # called by ExperienceMakerHolder
         if self._debug:
-            print(f"[trainer]               receiving exp.")
+            print("[trainer]               receiving exp.")
         self.detached_replay_buffer.extend(items)
 
     @ray.method(concurrency_group="buffer_sample")
