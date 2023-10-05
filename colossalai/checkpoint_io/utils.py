@@ -66,10 +66,10 @@ def is_dtensor_checkpoint(checkpoint_file_path: str) -> bool:
     Returns:
         bool: whether the checkpoint file is a dtensor checkpoint.
     """
-    if checkpoint_file_path.endswith('.*.safetensors') or checkpoint_file_path.endswith('.*.bin'):
-        return True
-    else:
-        return False
+    return bool(
+        checkpoint_file_path.endswith('.*.safetensors')
+        or checkpoint_file_path.endswith('.*.bin')
+    )
 
 
 def is_safetensor_checkpoint(checkpoint_file_path: str) -> bool:
@@ -82,10 +82,7 @@ def is_safetensor_checkpoint(checkpoint_file_path: str) -> bool:
     Returns:
         bool: whether the checkpoint file is a safetensor checkpoint.
     """
-    if checkpoint_file_path.endswith('.safetensors'):
-        return True
-    else:
-        return False
+    return bool(checkpoint_file_path.endswith('.safetensors'))
 
 
 # ======================================
@@ -225,19 +222,18 @@ def load_shard_state_dict(checkpoint_file: Path, use_safetensors: bool = False):
     """
     load shard state dict into model
     """
-    if use_safetensors and not checkpoint_file.suffix == ".safetensors":
+    if use_safetensors and checkpoint_file.suffix != ".safetensors":
         raise Exception("load the model using `safetensors`, but no file endwith .safetensors")
-    if use_safetensors:
-        from safetensors.torch import load_file as safe_load_file
-        from safetensors.torch import safe_open
-        with safe_open(checkpoint_file, framework="pt") as f:
-            metadata = f.metadata()
-        if metadata["format"] != "pt":
-            raise NotImplementedError(
-                f"Conversion from a {metadata['format']} safetensors archive to PyTorch is not implemented yet.")
-        return safe_load_file(checkpoint_file)
-    else:
+    if not use_safetensors:
         return torch.load(checkpoint_file)
+    from safetensors.torch import load_file as safe_load_file
+    from safetensors.torch import safe_open
+    with safe_open(checkpoint_file, framework="pt") as f:
+        metadata = f.metadata()
+    if metadata["format"] != "pt":
+        raise NotImplementedError(
+            f"Conversion from a {metadata['format']} safetensors archive to PyTorch is not implemented yet.")
+    return safe_load_file(checkpoint_file)
 
 
 def load_state_dict_into_model(model: nn.Module,
@@ -270,7 +266,7 @@ def load_state_dict_into_model(model: nn.Module,
         args = (state_dict, prefix, local_metadata, True, sub_missing_keys, [], error_msgs)
         # Parameters of module and children will start with prefix. We can exit early if there are none in this
         # state_dict
-        if len([key for key in state_dict if key.startswith(prefix)]) > 0:
+        if [key for key in state_dict if key.startswith(prefix)]:
             module._load_from_state_dict(*args)
         if load_sub_module:
             for name, child in module._modules.items():
@@ -283,7 +279,7 @@ def load_state_dict_into_model(model: nn.Module,
     missing_keys = missing_keys.append(sub_missing_keys)
 
     if strict:
-        if len(unexpected_keys) > 0:
+        if unexpected_keys:
             error_msgs = 'Unexpected key(s) in state_dict: {}. '.format(', '.join(
                 '"{}"'.format(k) for k in unexpected_keys))
             raise RuntimeError('Error(s) in loading state_dict for {}:\n\t{}'.format(
@@ -315,10 +311,12 @@ def load_param_groups_into_optimizer(optimizer: Optimizer, param_group_path: str
                          "that doesn't match the size of optimizer's group")
 
     # Creating mapping from id to parameters.
-    id_map = {
-        old_id: p for old_id, p in zip(chain.from_iterable((g['params'] for g in saved_groups
-                                                           )), chain.from_iterable((g['params'] for g in param_groups)))
-    }
+    id_map = dict(
+        zip(
+            chain.from_iterable((g['params'] for g in saved_groups)),
+            chain.from_iterable((g['params'] for g in param_groups)),
+        )
+    )
 
     # Update parameter groups, setting their 'params' value.
     def update_group(group, new_group):
@@ -467,10 +465,7 @@ def get_checkpoint_file_suffix(use_safetensors: bool) -> str:
     Returns:
         str: checkpoint file suffix.
     """
-    if use_safetensors:
-        return '.safetensors'
-    else:
-        return '.bin'
+    return '.safetensors' if use_safetensors else '.bin'
 
 
 def generate_checkpoint_shard_file_name(index: int,
@@ -568,15 +563,12 @@ def has_index_file(checkpoint_path: str) -> Tuple[bool, Optional[Path]]:
         index_files = list(checkpoint_path.glob('*.index.*json'))
 
         # if we found a .index.json file, make sure there is only one
-        if len(index_files) > 0:
+        if index_files:
             assert len(
                 index_files
             ) == 1, f'Expected to find one .index.json file in {checkpoint_path}, but found {len(index_files)}'
 
-        if len(index_files) == 1:
-            return True, index_files[0]
-        else:
-            return False, None
+        return (True, index_files[0]) if len(index_files) == 1 else (False, None)
     else:
         raise RuntimeError(f'Invalid checkpoint path {checkpoint_path}. Expected a file or a directory.')
 
@@ -595,20 +587,18 @@ def load_state_dict(checkpoint_file_path: Path):
     assert not is_dtensor_checkpoint(checkpoint_file_path), \
         f'Cannot load state dict from dtensor checkpoint {checkpoint_file_path}, you should convert the distributed tensors to gathered tensors with our CLI offline.'
 
-    if is_safetensor_checkpoint(checkpoint_file_path):
-        assert is_safetensors_available(), \
-            f'Cannot load state dict from safetensor checkpoint {checkpoint_file_path}, because safetensors is not available. Please install safetensors first with pip install safetensors.'
-        # load with safetensors
-        from safetensors import safe_open
-        state_dict = {}
-        with safe_open(checkpoint_file_path, framework="pt", device="cpu") as f:
-            for k in f.keys():
-                state_dict[k] = f.get_tensor(k)
-        return state_dict
-
-    else:
+    if not is_safetensor_checkpoint(checkpoint_file_path):
         # load with torch
         return torch.load(checkpoint_file_path)
+    assert is_safetensors_available(), \
+        f'Cannot load state dict from safetensor checkpoint {checkpoint_file_path}, because safetensors is not available. Please install safetensors first with pip install safetensors.'
+    # load with safetensors
+    from safetensors import safe_open
+    state_dict = {}
+    with safe_open(checkpoint_file_path, framework="pt", device="cpu") as f:
+        for k in f.keys():
+            state_dict[k] = f.get_tensor(k)
+    return state_dict
 
 
 def add_prefix(weights_name: str, prefix: Optional[str] = None) -> str:
@@ -654,5 +644,4 @@ def get_shard_filename(weights_name: str, idx: int):
     get shard file name
     """
     shard_file = weights_name.replace(".bin", f"-{idx+1:05d}.bin")
-    shard_file = shard_file.replace(".safetensors", f"-{idx + 1:05d}.safetensors")
-    return shard_file
+    return shard_file.replace(".safetensors", f"-{idx + 1:05d}.safetensors")

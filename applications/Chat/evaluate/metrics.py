@@ -21,8 +21,12 @@ def bleu_score(preds: List[str], targets: List[str], language: str) -> Dict[str,
     """
     bleu_scores = {"bleu1": 0, "bleu2": 0, "bleu3": 0, "bleu4": 0}
     cumulative_bleu = [0] * 4
-    weights = [(1. / 1., 0., 0., 0.), (1. / 2., 1. / 2., 0., 0.), (1. / 3., 1. / 3., 1. / 3., 0.),
-               (1. / 4., 1. / 4., 1. / 4., 1. / 4.)]
+    weights = [
+        (1.0, 0.0, 0.0, 0.0),
+        (1.0 / 2.0, 1.0 / 2.0, 0.0, 0.0),
+        (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 0.0),
+        (1.0 / 4.0, 1.0 / 4.0, 1.0 / 4.0, 1.0 / 4.0),
+    ]
 
     for pred, target in zip(preds, targets):
         if language == "cn":
@@ -44,7 +48,6 @@ def bleu_score(preds: List[str], targets: List[str], language: str) -> Dict[str,
 def chrf_score(preds: List[str], targets: List[str], language: str) -> Dict[str, float]:
     """Calculate CHRF Score Metric in sentence level.
     """
-    chrf_score = {"chrf": 0}
     cumulative_chrf = []
 
     for pred, target in zip(preds, targets):
@@ -57,9 +60,7 @@ def chrf_score(preds: List[str], targets: List[str], language: str) -> Dict[str,
 
         cumulative_chrf.append(sentence_chrf(target_list, pred_list))
 
-    chrf_score["chrf"] = statistics.mean(cumulative_chrf)
-
-    return chrf_score
+    return {"chrf": statistics.mean(cumulative_chrf)}
 
 
 def rouge_cn_score(preds: List[str], targets: List[str]) -> Dict[str, float]:
@@ -70,7 +71,6 @@ def rouge_cn_score(preds: List[str], targets: List[str]) -> Dict[str, float]:
     the preds and targets. ROUGE-L measures the number of matching
     longest common subsequence (LCS) between preds and targets.
     """
-    rouge_scores = {"rouge1": 0, "rouge2": 0, "rougeL": 0}
     all_preds = []
     all_targets = []
 
@@ -83,11 +83,11 @@ def rouge_cn_score(preds: List[str], targets: List[str]) -> Dict[str, float]:
     rouge_cn = Rouge_cn()
     rouge_avg = rouge_cn.get_scores(all_preds, all_targets, avg=True)
 
-    rouge_scores["rouge1"] = rouge_avg["rouge-1"]["f"]
-    rouge_scores["rouge2"] = rouge_avg["rouge-2"]["f"]
-    rouge_scores["rougeL"] = rouge_avg["rouge-l"]["f"]
-
-    return rouge_scores
+    return {
+        "rouge1": rouge_avg["rouge-1"]["f"],
+        "rouge2": rouge_avg["rouge-2"]["f"],
+        "rougeL": rouge_avg["rouge-l"]["f"],
+    }
 
 
 def rouge_en_score(preds: List[str], targets: List[str]) -> Dict[str, float]:
@@ -132,7 +132,6 @@ def distinct_score(preds: List[str], language: str) -> Dict[str, float]:
     It evaluates the diversity of generation text by counting
     the unique n-grams.
     """
-    distinct_score = {"distinct": 0}
     cumulative_distinct = []
 
     for pred in preds:
@@ -160,9 +159,7 @@ def distinct_score(preds: List[str], language: str) -> Dict[str, float]:
 
             cumulative_distinct.append(statistics.mean(avg_distinct))
 
-    distinct_score["distinct"] = statistics.mean(cumulative_distinct)
-
-    return distinct_score
+    return {"distinct": statistics.mean(cumulative_distinct)}
 
 
 def bert_score(preds: List[str], targets: List[str], language: str) -> Dict[str, float]:
@@ -171,7 +168,6 @@ def bert_score(preds: List[str], targets: List[str], language: str) -> Dict[str,
     The BERTScore evaluates the semantic similarity between
     tokens of preds and targets with BERT.
     """
-    bert_score = {"bert_score": 0}
     pred_list = []
     target_list = []
 
@@ -184,9 +180,7 @@ def bert_score(preds: List[str], targets: List[str], language: str) -> Dict[str,
     elif language == "en":
         _, _, F = score(pred_list, target_list, lang="en", verbose=True)
 
-    bert_score["bert_score"] = F.mean().item()
-
-    return bert_score
+    return {"bert_score": F.mean().item()}
 
 
 def calculate_precision_recall_f1(preds: List[str], targets: List[str], language: str) -> Dict[str, float]:
@@ -196,18 +190,17 @@ def calculate_precision_recall_f1(preds: List[str], targets: List[str], language
     the number f overlaps between the preds and target. The comparison length
     limited by the shorter one of preds and targets.
     """
-    precision_recall_f1 = {"precision": 0, "recall": 0, "f1_score": 0}
     precision_scores = []
     recall_scores = []
     f1_scores = []
 
     for pred, target in zip(preds, targets):
         if language == "cn":
-            pred_list = [char for char in ' '.join(jieba.cut(preprocessing_text(pred))).split()]
-            target_list = [char for char in ' '.join(jieba.cut(preprocessing_text(target))).split()]
+            pred_list = list(' '.join(jieba.cut(preprocessing_text(pred))).split())
+            target_list = list(' '.join(jieba.cut(preprocessing_text(target))).split())
         elif language == "en":
-            pred_list = [char for char in preprocessing_text(pred).split()]
-            target_list = [char for char in preprocessing_text(target).split()]
+            pred_list = list(preprocessing_text(pred).split())
+            target_list = list(preprocessing_text(target).split())
 
         target_labels = [1] * min(len(target_list), len(pred_list))
         pred_labels = [int(pred_list[i] == target_list[i]) for i in range(0, min(len(target_list), len(pred_list)))]
@@ -216,7 +209,11 @@ def calculate_precision_recall_f1(preds: List[str], targets: List[str], language
         recall_scores.append(recall_score(target_labels, pred_labels, zero_division=0))
         f1_scores.append(f1_score(target_labels, pred_labels, zero_division=0))
 
-    precision_recall_f1["precision"] = statistics.mean(precision_scores)
+    precision_recall_f1 = {
+        "recall": 0,
+        "f1_score": 0,
+        "precision": statistics.mean(precision_scores),
+    }
     precision_recall_f1["recall"] = statistics.mean(recall_scores)
     precision_recall_f1["f1_score"] = statistics.mean(f1_scores)
 
@@ -228,9 +225,11 @@ def precision(preds: List[str], targets: List[str], language: str) -> Dict[str, 
 
     Calculating precision by counting the number of overlaps between the preds and target.
     """
-    precision = {"precision": 0}
-    precision["precision"] = calculate_precision_recall_f1(preds, targets, language)["precision"]
-    return precision
+    return {
+        "precision": calculate_precision_recall_f1(preds, targets, language)[
+            "precision"
+        ]
+    }
 
 
 def recall(preds: List[str], targets: List[str], language: str) -> Dict[str, float]:
@@ -238,9 +237,11 @@ def recall(preds: List[str], targets: List[str], language: str) -> Dict[str, flo
 
     Calculating recall by counting the number of overlaps between the preds and target.
     """
-    recall = {"recall": 0}
-    recall["recall"] = calculate_precision_recall_f1(preds, targets, language)["recall"]
-    return recall
+    return {
+        "recall": calculate_precision_recall_f1(preds, targets, language)[
+            "recall"
+        ]
+    }
 
 
 def F1_score(preds: List[str], targets: List[str], language: str) -> Dict[str, float]:
@@ -248,6 +249,8 @@ def F1_score(preds: List[str], targets: List[str], language: str) -> Dict[str, f
 
     Calculating f1-score by counting the number of overlaps between the preds and target.
     """
-    f1 = {"f1_score": 0}
-    f1["f1_score"] = calculate_precision_recall_f1(preds, targets, language)["f1_score"]
-    return f1
+    return {
+        "f1_score": calculate_precision_recall_f1(preds, targets, language)[
+            "f1_score"
+        ]
+    }

@@ -32,9 +32,9 @@ class RegionManager:
         self.cnode = cnode
         self.only_param_ops = []
         self.param_region_map: Dict[torch.nn.Parameter, Region] = dict()
-        self.shared_region_pairs: List[Tuple[Region, Region]] = list()
-        self.region_list: List[Region] = list()
-        self.rid_in_pool: List[int] = list()
+        self.shared_region_pairs: List[Tuple[Region, Region]] = []
+        self.region_list: List[Region] = []
+        self.rid_in_pool: List[int] = []
         self.mem_block_size: int = 0
         self.memory_budget = memory_budget
 
@@ -71,7 +71,7 @@ class RegionManager:
         elif len(self.shared_region_pairs) == 1:
             shared_regs = self.shared_region_pairs[0]
             assert shared_regs[0].shared_rid == shared_regs[1].r_id \
-                   and shared_regs[1].shared_rid == shared_regs[0].r_id
+                       and shared_regs[1].shared_rid == shared_regs[0].r_id
             fst_id = shared_regs[0].r_id
             lst_id = shared_regs[1].r_id
             regs_left_out = init_region_list[:fst_id + 1]
@@ -100,7 +100,7 @@ class RegionManager:
 
         self._process_shared_region()
 
-        self.max_param_num = max([reg.param_num for reg in self.region_list])
+        self.max_param_num = max(reg.param_num for reg in self.region_list)
         self.memory_budget -= self.max_param_num * torch.tensor([], dtype=torch.float32).element_size()
 
     def _post_process(self, ts: TrainingSimulator = None):
@@ -129,9 +129,7 @@ class RegionManager:
         coexist_matrix = torch.logical_or(
             ts.fwd_reg_flow, ts.bwd_reg_flow)
 
-        block_to_regs = {}
-        for block_idx in range(mem_block_num):
-            block_to_regs[block_idx] = []
+        block_to_regs = {block_idx: [] for block_idx in range(mem_block_num)}
         for reg in self.region_list:
             if reg.r_id in self.rid_in_pool:
                 cur_reg_appears = coexist_matrix[:, reg.r_id]
@@ -145,7 +143,8 @@ class RegionManager:
 
                 if reg.r_id not in self.reg_to_block:
                     raise NotImplementedError(
-                        f'can not find a block from the memory pool to store parameters of the region')
+                        'can not find a block from the memory pool to store parameters of the region'
+                    )
         self.memory_pool = torch.chunk(torch.zeros(int(
             mem_block_num * self.mem_block_size / 2), dtype=torch.half, device='cuda'), chunks=int(mem_block_num))
 
@@ -254,29 +253,30 @@ class RegionManager:
         Special processing for the shared region, which uses GPT2 and Bert case as a priori knowledge.
         """
 
-        if len(self.shared_region_pairs):
-            assert len(self.shared_region_pairs) <= 1
-            former_reg, latter_reg = self.shared_region_pairs[0]
-            assert latter_reg.param_num >= former_reg.param_num
-            embedding_node = former_reg.nodes[-1]
-            assert embedding_node.op == 'call_module' and isinstance(
-                self.root_module.get_submodule(embedding_node.target), torch.nn.Embedding)
-            if latter_reg.param_num > former_reg.param_num:
-                for idx, n in enumerate(latter_reg.nodes):
-                    if (n.op == 'call_module' and isinstance(self.root_module.get_submodule(n.target),
-                                                             torch.nn.Linear)) or \
+        if not len(self.shared_region_pairs):
+            return
+        assert len(self.shared_region_pairs) <= 1
+        former_reg, latter_reg = self.shared_region_pairs[0]
+        assert latter_reg.param_num >= former_reg.param_num
+        embedding_node = former_reg.nodes[-1]
+        assert embedding_node.op == 'call_module' and isinstance(
+            self.root_module.get_submodule(embedding_node.target), torch.nn.Embedding)
+        if latter_reg.param_num > former_reg.param_num:
+            for idx, n in enumerate(latter_reg.nodes):
+                if (n.op == 'call_module' and isinstance(self.root_module.get_submodule(n.target),
+                                                         torch.nn.Linear)) or \
                             (n.op == 'call_function' and n.target is torch.nn.functional.linear):
-                        cut_node_idx = idx + 1
-                        break
-                assert len(latter_reg.fp16_params) == 2
-                new_reg = latter_reg.split(cut_node_idx, 1)
-                for p in new_reg.fp16_params:
-                    self.param_region_map[p] = new_reg
-                self.region_list.insert(new_reg.r_id, new_reg)
-                for reg in self.region_list[new_reg.r_id + 1:]:
-                    reg.r_id += 1
-            latter_reg.shared_rid = former_reg.r_id
-            former_reg.shared_rid = latter_reg.r_id
+                    cut_node_idx = idx + 1
+                    break
+            assert len(latter_reg.fp16_params) == 2
+            new_reg = latter_reg.split(cut_node_idx, 1)
+            for p in new_reg.fp16_params:
+                self.param_region_map[p] = new_reg
+            self.region_list.insert(new_reg.r_id, new_reg)
+            for reg in self.region_list[new_reg.r_id + 1:]:
+                reg.r_id += 1
+        latter_reg.shared_rid = former_reg.r_id
+        former_reg.shared_rid = latter_reg.r_id
 
     def _linearize_graph(self) -> List[Region]:
         """Linearizing the graph
@@ -343,13 +343,12 @@ class RegionManager:
             elif n.op == "call_module":
                 target = n.target
                 submod = self.root_module.get_submodule(target)
-                if (
-                        len(list(submod.named_parameters(recurse=False))) != 0
-                        or len(list(submod.named_buffers(recurse=False))) != 0
+                if list(submod.named_parameters(recurse=False)) or list(
+                    submod.named_buffers(recurse=False)
                 ):
                     label = True
 
-            return label and not sum([v for _, v in param_op_deps.items()])
+            return label and not sum(v for _, v in param_op_deps.items())
 
         def _is_param_comp_end() -> bool:
             """Check if an op could be seen as parameter computation end
@@ -377,9 +376,8 @@ class RegionManager:
             if n.op == "call_module":
                 target = n.target
                 submod = self.root_module.get_submodule(target)
-                if (
-                        len(list(submod.named_parameters(recurse=False))) != 0
-                        or len(list(submod.named_buffers(recurse=False))) != 0
+                if list(submod.named_parameters(recurse=False)) or list(
+                    submod.named_buffers(recurse=False)
                 ):
                     label = True
 
@@ -387,7 +385,11 @@ class RegionManager:
                 label = any(map(lambda x: x.name in self.only_param_ops, n.all_input_nodes)) and any(
                     map(lambda x: x.name not in self.only_param_ops and not _is_cop(n.target), n.all_input_nodes))
 
-            return label and not sum([v for _, v in param_op_deps.items()]) and not any(map(_is_inplace, n.users))
+            return (
+                label
+                and not sum(v for _, v in param_op_deps.items())
+                and not any(map(_is_inplace, n.users))
+            )
 
         def _exception_node_handling():
             # TODO meta info prop bug
@@ -399,7 +401,7 @@ class RegionManager:
             for name in self.cnode:
                 try:
                     assert next(node for node in self.graph.nodes if node.name == name).op == "placeholder", \
-                        f"Common node {name} is not an input of the model."
+                            f"Common node {name} is not an input of the model."
                 except StopIteration:
                     raise ValueError(f"Common node name {name} not in graph.")
         else:
@@ -417,7 +419,7 @@ class RegionManager:
         act_n = None
 
         for n in self.graph.nodes:
-            if n.op != "placeholder" and n.op != "output":
+            if n.op not in ["placeholder", "output"]:
                 for n_par in n.all_input_nodes:
                     if n_par.op != "placeholder" and n_par.name not in self.cnode:
                         deps[n_par] -= 1

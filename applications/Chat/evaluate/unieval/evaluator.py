@@ -55,7 +55,7 @@ class SumEvaluator:
         n_data = len(data)
         eval_scores = [{} for _ in range(n_data)]
 
-        if dims == None:
+        if dims is None:
             eval_dims = self.dimensions
         else:
             assert isinstance(dims, list)
@@ -63,7 +63,7 @@ class SumEvaluator:
 
         for dim in eval_dims:
             # Calculate average sentence-level scores for 'consistency' and 'fluency'
-            if dim == 'consistency' or dim == 'fluency':
+            if dim in ['consistency', 'fluency']:
                 src_list, output_list = [], []
                 n_sents = []    # the number of sentences in each generated summary
                 for i in range(n_data):
@@ -84,8 +84,7 @@ class SumEvaluator:
                     score.append(sum(sent_score[start_idx:start_idx + cur_n_sent]) / (cur_n_sent + 1e-6))
                     start_idx += cur_n_sent
 
-            # Calculate summary-level score for 'coherence' and 'relevance'
-            elif dim == 'coherence' or dim == 'relevance':
+            elif dim in ['coherence', 'relevance']:
                 src_list, output_list, ref_list = [], [], []
                 for i in range(n_data):
                     src_list.append(data[i]['source'])
@@ -95,7 +94,6 @@ class SumEvaluator:
                 input_list = add_question(dimension=dim, output=output_list, src=src_list, ref=ref_list, task=self.task)
                 score = self.scorer.score(input_list, self.task, category, dim)
 
-            # Please customize other dimensions here for summarization
             else:
                 raise NotImplementedError('The input format for this dimension is still undefined. \
                                            Please customize it first.')
@@ -139,7 +137,7 @@ class DialogEvaluator:
         n_data = len(data)
         eval_scores = [{} for _ in range(n_data)]
 
-        if dims == None:
+        if dims is None:
             eval_dims = self.dimensions
         else:
             assert isinstance(dims, list)
@@ -231,7 +229,7 @@ class D2tEvaluator:
         n_data = len(data)
         eval_scores = [{} for _ in range(n_data)]
 
-        if dims == None:
+        if dims is None:
             eval_dims = self.dimensions
         else:
             assert isinstance(dims, list)

@@ -47,10 +47,6 @@ class GeneralCheckpointIO(CheckpointIO):
     def save_unsharded_model(self, model: nn.Module, checkpoint: str, gather_dtensor: bool, use_safetensors: bool):
         state_dict = model.state_dict()
 
-        # TODO(FrankLeeeee): add support for gather_dtensor
-        if gather_dtensor:
-            pass
-
         # save the checkpoint
         save_state_dict(state_dict, checkpoint, use_safetensors)
 
@@ -198,10 +194,7 @@ class GeneralCheckpointIO(CheckpointIO):
         """
         load shard model, load model from multiple files
         """
-        use_safetensors = False
-        if "safetensors" in checkpoint_index_file.name:
-            use_safetensors = True
-
+        use_safetensors = "safetensors" in checkpoint_index_file.name
         if use_safetensors and not is_safetensors_available():
             raise ImportError("`safe_serialization` requires the `safetensors` library: `pip install safetensors`.")
 
@@ -219,7 +212,6 @@ class GeneralCheckpointIO(CheckpointIO):
         if strict:
             remain_keys = reduce(lambda a, b: a & b, map(set, missing_keys))
             if len(remain_keys) > 0:
-                error_msgs = 'Missing key(s) in state_dict: {}. '.format(', '.join(
-                    '"{}"'.format(k) for k in missing_keys))
+                error_msgs = f"""Missing key(s) in state_dict: {', '.join(f'"{k}"' for k in missing_keys)}. """
                 raise RuntimeError('Error(s) in loading state_dict for {}:\n\t{}'.format(
                     self.__class__.__name__, "\n\t".join(error_msgs)))

@@ -44,11 +44,7 @@ def main(args):
     else:
         raise ValueError(f'Unsupported actor model "{args.model}"')
 
-    if args.rm_model == None:
-        rm_model_name = args.model
-    else:
-        rm_model_name = args.rm_model
-
+    rm_model_name = args.model if args.rm_model is None else args.rm_model
     if rm_model_name == 'gpt2':
         reward_model = GPTRM(pretrained=args.rm_pretrain)
     elif rm_model_name == 'bloom':

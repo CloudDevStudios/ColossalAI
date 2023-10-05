@@ -221,7 +221,7 @@ class LowLevelZeroPlugin(DPPluginBase):
         verbose: bool = False,
     ) -> None:
         super().__init__()
-        assert stage in (1, 2), f'LowLevelZeroPlugin only supports stage 1/2 training'
+        assert stage in {1, 2}, 'LowLevelZeroPlugin only supports stage 1/2 training'
         assert precision in SUPPORTED_PRECISION, f'LowLevelZeroPlugin only supports {SUPPORTED_PRECISION} training'
 
         self.stage = stage

@@ -69,12 +69,11 @@ class _WrappedCall:
         except Exception as e:
             assert e.__traceback__
             topmost_framesummary: traceback.FrameSummary = \
-                traceback.StackSummary.extract(traceback.walk_tb(e.__traceback__))[-1]  # type: ignore[arg-type]
-            if "eval_with_key" in topmost_framesummary.filename:
-                print(_WrappedCall._generate_error_message(topmost_framesummary), file=sys.stderr)
-                raise e.with_traceback(None)
-            else:
+                    traceback.StackSummary.extract(traceback.walk_tb(e.__traceback__))[-1]  # type: ignore[arg-type]
+            if "eval_with_key" not in topmost_framesummary.filename:
                 raise e
+            print(_WrappedCall._generate_error_message(topmost_framesummary), file=sys.stderr)
+            raise e.with_traceback(None)
 
 
 class ColoGraphModule(torch.fx.GraphModule):
@@ -199,10 +198,7 @@ class {module_name}(torch.nn.Module):
 
         def _gen_model_repr(module_name: str, module: torch.nn.Module) -> Optional[str]:
             safe_reprs = [nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d]
-            if type(module) in safe_reprs:
-                return f"{module.__repr__()}"
-            else:
-                return None
+            return f"{module.__repr__()}" if type(module) in safe_reprs else None
 
         blobified_modules = []
         for module_name, module in self.named_children():
@@ -234,6 +230,6 @@ class {module_name}(torch.nn.Module):
         init_file = folder / '__init__.py'
         init_file.write_text('from .module import *')
 
-        if len(blobified_modules) > 0:
+        if blobified_modules:
             warnings.warn("Was not able to save the following children modules as reprs -"
                           f"saved as pickled files instead: {blobified_modules}")

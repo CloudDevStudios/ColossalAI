@@ -45,9 +45,7 @@ class sim_env(saved_tensors_hooks):
 
 
 def _normalize_tuple(x):
-    if not isinstance(x, tuple):
-        return (x,)
-    return x
+    return (x, ) if not isinstance(x, tuple) else x
 
 
 def _current_device(module):
@@ -117,10 +115,7 @@ class ShapeProp(torch.fx.Interpreter):
         def unwrap_fn(elem):
 
             def _convert_meta(t: torch.Tensor):
-                if t.device == 'meta':
-                    return t
-                else:
-                    return t.to('meta')
+                return t if t.device == 'meta' else t.to('meta')
 
             if isinstance(elem, MetaTensor):
                 if getattr(self, '_is_param', False):
@@ -153,7 +148,7 @@ class ShapeProp(torch.fx.Interpreter):
             n_info.parameters.update({k: MetaTensor(v) for k, v in kwargs.items() if isinstance(v, torch.nn.Parameter)})
 
         n_info.inputs = tuple(v for v in args if is_pure_tensor(v)) + \
-                        tuple(v for v in kwargs.values() if is_pure_tensor(v))
+                            tuple(v for v in kwargs.values() if is_pure_tensor(v))
 
         # align with SPMD
         if isinstance(r, (tuple, list)):
@@ -185,17 +180,15 @@ class ShapeProp(torch.fx.Interpreter):
         Return
             Any: The value returned by the function invocation
         """
-        convert_to_param = False
-        if target in (torch.transpose, torch.reshape) and isinstance(args[0], torch.nn.parameter.Parameter):
-            convert_to_param = True
+        convert_to_param = target in (
+            torch.transpose,
+            torch.reshape,
+        ) and isinstance(args[0], torch.nn.parameter.Parameter)
         if target in self._custom_dispatch_func:
             res = self._custom_dispatch_func[target](*args, **kwargs)
         else:
             res = super().call_function(target, args, kwargs)
-        if convert_to_param:
-            return torch.nn.Parameter(res)
-        else:
-            return res
+        return torch.nn.Parameter(res) if convert_to_param else res
 
     def call_method(self, target: 'Target', args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Any:
         """
@@ -216,17 +209,14 @@ class ShapeProp(torch.fx.Interpreter):
 
         target_method = getattr(self_obj.__class__, target)
 
-        convert_to_parameter = False
-        if target_method in (torch.Tensor.view, torch.Tensor.transpose) and isinstance(
-                args[0], torch.nn.parameter.Parameter):
-            convert_to_parameter = True
+        convert_to_parameter = target_method in (
+            torch.Tensor.view,
+            torch.Tensor.transpose,
+        ) and isinstance(args[0], torch.nn.parameter.Parameter)
         # Execute the method and return the result
         assert isinstance(target, str)
         res = getattr(self_obj, target)(*args_tail, **kwargs)
-        if convert_to_parameter:
-            return torch.nn.Parameter(res)
-        else:
-            return res
+        return torch.nn.Parameter(res) if convert_to_parameter else res
 
     def propagate(self, *args, device=None):
         """

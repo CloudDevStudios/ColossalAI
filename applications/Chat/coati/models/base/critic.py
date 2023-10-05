@@ -46,9 +46,6 @@ class Critic(LoRAModule):
             num_actions = action_mask.size(1)
             prompt_mask = attention_mask[:, :-num_actions]
             values = values[:, :-num_actions]
-            value = masked_mean(values, prompt_mask, dim=1)
-            return value
-
+            return masked_mean(values, prompt_mask, dim=1)
         values = values[:, :-1]
-        value = values.mean(dim=1)
-        return value
+        return values.mean(dim=1)

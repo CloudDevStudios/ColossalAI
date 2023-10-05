@@ -66,8 +66,9 @@ class AsynPreFwdPostBwdOP(torch.autograd.Function):
 
         sync_rid = fwd_info.get('sync_rid', None)
         if sync_rid is not None:
-            prefetch_event = GlobalRuntimeInfo().fwd_prefetch_event_map.get(sync_rid, None)
-            if prefetch_event:
+            if prefetch_event := GlobalRuntimeInfo().fwd_prefetch_event_map.get(
+                sync_rid, None
+            ):
                 prefetch_event.wait()
 
         h2d_rid = fwd_info.get('h2d_rid', None)
@@ -92,8 +93,9 @@ class AsynPreFwdPostBwdOP(torch.autograd.Function):
         if sync_rid is not None:
             wait_region = GlobalRuntimeInfo().region_list[sync_rid]
             assert isinstance(wait_region, Region)
-            prefetch_event = GlobalRuntimeInfo().bwd_prefetch_event_map.get(sync_rid, None)
-            if prefetch_event:
+            if prefetch_event := GlobalRuntimeInfo().bwd_prefetch_event_map.get(
+                sync_rid, None
+            ):
                 prefetch_event.wait()
             else:
                 wait_region.move_param_to_cuda()

@@ -26,10 +26,10 @@ class NaiveFP16MixedPrecisionMixin(FP16MixedPrecisionMixin):
         self.params = working_params
 
     def check_local_overflow(self) -> bool:
-        for p in self.params:
-            if p.grad is not None and not torch.isfinite(p.grad).all():
-                return True
-        return False
+        return any(
+            p.grad is not None and not torch.isfinite(p.grad).all()
+            for p in self.params
+        )
 
 
 class MixedPrecisionOptimizer(OptimizerWrapper):
@@ -46,11 +46,12 @@ class MixedPrecisionOptimizer(OptimizerWrapper):
                  max_scale: float = 2**32,
                  max_norm: float = 0.0):
         super().__init__(optim)
-        if precision == 'fp16':
+        if precision == 'bf16':
+            self.mixed_precision = BF16MixedPrecisionMixin()
+        elif precision == 'fp16':
             working_params = []
             for group in self.optim.param_groups:
-                for p in group['params']:
-                    working_params.append(p)
+                working_params.extend(iter(group['params']))
             self.mixed_precision = NaiveFP16MixedPrecisionMixin(working_params,
                                                                 initial_scale=initial_scale,
                                                                 min_scale=min_scale,
@@ -59,8 +60,6 @@ class MixedPrecisionOptimizer(OptimizerWrapper):
                                                                 growth_interval=growth_interval,
                                                                 hysteresis=hysteresis,
                                                                 max_scale=max_scale)
-        elif precision == 'bf16':
-            self.mixed_precision = BF16MixedPrecisionMixin()
         else:
             raise ValueError(f'Unsupported precision: {precision}')
         if max_norm > 0.0:
@@ -117,7 +116,7 @@ class MixedPrecisionOptimizer(OptimizerWrapper):
         if self.max_norm <= 0.:
             return 0.
         grads = [p.grad for group in self.param_groups for p in group['params'] if p.grad is not None]
-        if len(grads) == 0:
+        if not grads:
             return 0.
         device = grads[0].device
         # TODO(ver217): support tp

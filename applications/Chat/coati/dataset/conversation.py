@@ -33,16 +33,12 @@ class Conversation:
     skip_next: bool = False
 
     def get_prompt(self):
-        if self.sep_style == SeparatorStyle.ADD_EOS_TOKEN:
-            ret = self.system
-            for role, message in self.messages:
-                if message:
-                    ret += role + ": " + message + self.sep
-                else:
-                    ret += role + ": "
-            return ret
-        else:
+        if self.sep_style != SeparatorStyle.ADD_EOS_TOKEN:
             raise ValueError(f"Invalid style: {self.sep_style}")
+        ret = self.system
+        for role, message in self.messages:
+            ret += f"{role}: {message}{self.sep}" if message else f"{role}: "
+        return ret
 
     def append_message(self, role, message):
         self.messages.append([role, message])

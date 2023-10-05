@@ -41,32 +41,33 @@ class RewardModelTrainer(SLTrainer):
         self.scheduler = lr_scheduler
 
     def _eval(self, epoch):
-        if self.eval_dataloader is not None:
-            self.model.eval()
-            dist, on, cnt = 0, 0, 0
-            with torch.no_grad():
-                for chosen_ids, c_mask, reject_ids, r_mask in self.eval_dataloader:
-                    chosen_ids = chosen_ids.squeeze(1).to(torch.cuda.current_device())
-                    c_mask = c_mask.squeeze(1).to(torch.cuda.current_device())
-                    reject_ids = reject_ids.squeeze(1).to(torch.cuda.current_device())
-                    r_mask = r_mask.squeeze(1).to(torch.cuda.current_device())
-                    chosen_reward = self.model(chosen_ids, attention_mask=c_mask)
-                    reject_reward = self.model(reject_ids, attention_mask=r_mask)
-                    for i in range(len(chosen_reward)):
-                        cnt += 1
-                        if chosen_reward[i] > reject_reward[i]:
-                            on += 1
-                    dist += (chosen_reward - reject_reward).mean().item()
-                self.dist = dist / len(self.eval_dataloader)
-                self.acc = on / cnt
+        if self.eval_dataloader is None:
+            return
+        self.model.eval()
+        dist, on, cnt = 0, 0, 0
+        with torch.no_grad():
+            for chosen_ids, c_mask, reject_ids, r_mask in self.eval_dataloader:
+                chosen_ids = chosen_ids.squeeze(1).to(torch.cuda.current_device())
+                c_mask = c_mask.squeeze(1).to(torch.cuda.current_device())
+                reject_ids = reject_ids.squeeze(1).to(torch.cuda.current_device())
+                r_mask = r_mask.squeeze(1).to(torch.cuda.current_device())
+                chosen_reward = self.model(chosen_ids, attention_mask=c_mask)
+                reject_reward = self.model(reject_ids, attention_mask=r_mask)
+                for i in range(len(chosen_reward)):
+                    cnt += 1
+                    if chosen_reward[i] > reject_reward[i]:
+                        on += 1
+                dist += (chosen_reward - reject_reward).mean().item()
+            self.dist = dist / len(self.eval_dataloader)
+            self.acc = on / cnt
 
-            if is_rank_0():
-                log = pd.DataFrame(
-                    [[(epoch + 1) * len(self.train_dataloader),
-                      self.loss.item(), self.dist, self.acc]],
-                    columns=['step', 'loss', 'dist', 'acc']
-                )
-                log.to_csv('log.csv', mode='a', header=False, index=False)
+        if is_rank_0():
+            log = pd.DataFrame(
+                [[(epoch + 1) * len(self.train_dataloader),
+                  self.loss.item(), self.dist, self.acc]],
+                columns=['step', 'loss', 'dist', 'acc']
+            )
+            log.to_csv('log.csv', mode='a', header=False, index=False)
 
     def _train(self, epoch):
         self.model.train()
@@ -75,8 +76,7 @@ class RewardModelTrainer(SLTrainer):
             desc='Train step of epoch %d' % epoch,
             disable=not is_rank_0()
         )
-        cnt = 0
-        for chosen_ids, c_mask, reject_ids, r_mask in self.train_dataloader:
+        for cnt, (chosen_ids, c_mask, reject_ids, r_mask) in enumerate(self.train_dataloader, start=1):
             chosen_ids = chosen_ids.squeeze(1).to(torch.cuda.current_device())
             c_mask = c_mask.squeeze(1).to(torch.cuda.current_device())
             reject_ids = reject_ids.squeeze(1).to(torch.cuda.current_device())
@@ -87,7 +87,6 @@ class RewardModelTrainer(SLTrainer):
             self.strategy.backward(self.loss, self.model, self.optimizer)
             self.strategy.optimizer_step(self.optimizer)
             self.optimizer.zero_grad()
-            cnt += 1
             if cnt % 100 == 0:
                 self.scheduler.step()
             step_bar.update()

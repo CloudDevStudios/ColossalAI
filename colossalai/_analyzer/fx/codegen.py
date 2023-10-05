@@ -122,9 +122,6 @@ def _find_nested_ckpt_regions(node_list: List[Node], ckpt_level: int = 0):
             start = end = -1
             current_region = None
 
-        else:
-            pass
-
     if current_region is not None:
         end = len(node_list) - 1
         ckpt_regions.append((start, end))
@@ -182,25 +179,24 @@ def emit_ckpt_func(body,
             else:
                 node = node_list[node_idx]
                 emit_node_func(node, ckpt_func)
-                ckpt_func[-1] = '    ' + ckpt_func[-1]
+                ckpt_func[-1] = f'    {ckpt_func[-1]}'
                 delete_unused_value_func(node, ckpt_func)
                 node_idx += 1
 
-        ckpt_func.append('    ' + _gen_ckpt_output(outputs) + '\n\n')
+        ckpt_func.append(f'    {_gen_ckpt_output(outputs)}' + '\n\n')
         ckpt_func += ckpt_func_buffer
 
-    # last level
     else:
         for node in node_list:
             emit_node_func(node, ckpt_func)
-            ckpt_func[-1] = '    ' + ckpt_func[-1]
+            ckpt_func[-1] = f'    {ckpt_func[-1]}'
             delete_unused_value_func(node, ckpt_func)
 
-        ckpt_func.append('    ' + _gen_ckpt_output(outputs) + '\n\n')
+        ckpt_func.append(f'    {_gen_ckpt_output(outputs)}' + '\n\n')
 
     usage = _gen_ckpt_usage(label, inputs, outputs, False) + '\n'
     if in_ckpt:
-        usage = '    ' + usage
+        usage = f'    {usage}'
     body.append(usage)
 
 
@@ -294,12 +290,7 @@ class ActivationCheckpointCodeGen(CodeGen):
                     # Assign global names for each of the inner type variables.
                     args = [type_repr(arg) for arg in o.__args__]
 
-                    if len(args) == 0:
-                        # Bare type, such as `typing.Tuple` with no subscript
-                        # This code-path used in Python < 3.9
-                        return origin_typename
-
-                    return f'{origin_typename}[{",".join(args)}]'
+                    return origin_typename if not args else f'{origin_typename}[{",".join(args)}]'
                 else:
                     # Bare type, such as `typing.Tuple` with no subscript
                     # This code-path used in Python 3.9+
@@ -320,9 +311,7 @@ class ActivationCheckpointCodeGen(CodeGen):
 
             args_s = ', '.join(_get_repr(a) for a in args)
             kwargs_s = ', '.join(f'{k} = {_get_repr(v)}' for k, v in kwargs.items())
-            if args_s and kwargs_s:
-                return f'{args_s}, {kwargs_s}'
-            return args_s or kwargs_s
+            return f'{args_s}, {kwargs_s}' if args_s and kwargs_s else args_s or kwargs_s
 
         # Run through reverse nodes and record the first instance of a use
         # of a given node. This represents the *last* use of the node in the
@@ -396,10 +385,10 @@ class ActivationCheckpointCodeGen(CodeGen):
                 # special case for getattr: node.args could be 2-argument or 3-argument
                 # 2-argument: attribute access; 3-argument: fall through to attrib function call with default value
                 if global_name == 'getattr' and \
-                isinstance(node.args, tuple) and \
-                isinstance(node.args[1], str) and \
-                node.args[1].isidentifier() and \
-                len(node.args) == 2:
+                    isinstance(node.args, tuple) and \
+                    isinstance(node.args[1], str) and \
+                    node.args[1].isidentifier() and \
+                    len(node.args) == 2:
                     body.append(
                         f'{repr(node)}{maybe_type_annotation} = {_format_target(repr(node.args[0]), node.args[1])}')
                     return
@@ -428,13 +417,13 @@ class ActivationCheckpointCodeGen(CodeGen):
         ckpt_func = []
         emit_code_with_activation_checkpoint(body, ckpt_func, nodes, emit_node, delete_unused_values)
 
-        if len(body) == 0:
+        if not body:
             # If the Graph has no non-placeholder nodes, no lines for the body
             # have been emitted. To continue to have valid Python code, emit a
             # single pass statement
             body.append('pass\n')
 
-        if len(wrapped_fns) > 0:
+        if wrapped_fns:
             wrap_name = add_global('wrap', torch.fx.wrap)
             wrap_stmts = '\n'.join([f'{wrap_name}("{name}")' for name in wrapped_fns])
         else:
@@ -451,7 +440,7 @@ class ActivationCheckpointCodeGen(CodeGen):
         prologue = prologue
 
         code = ''.join(body)
-        code = '\n'.join('    ' + line for line in code.split('\n'))
+        code = '\n'.join(f'    {line}' for line in code.split('\n'))
         fn_code = f"""
 {wrap_stmts}
 {prologue}

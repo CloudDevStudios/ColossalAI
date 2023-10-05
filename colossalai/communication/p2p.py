@@ -55,15 +55,17 @@ def create_recv_buffer_with_shapes(recv_shapes, dtype, scatter_gather_tensors):
 
 def process_object_to_send(object_send, scatter_gather_tensors):
     if isinstance(object_send, torch.Tensor):
-        send_split = _get_tensor_shape(object_send.shape, scatter_gather_tensors)[1]
-        if send_split:
+        if send_split := _get_tensor_shape(
+            object_send.shape, scatter_gather_tensors
+        )[1]:
             object_send = split_tensor_into_1d_equal_chunks(object_send)
         return object_send
 
     object_send_list = []
     for tensor_send in object_send:
-        send_split = _get_tensor_shape(tensor_send.shape, scatter_gather_tensors)[1]
-        if send_split:
+        if send_split := _get_tensor_shape(
+            tensor_send.shape, scatter_gather_tensors
+        )[1]:
             object_send_list.append(split_tensor_into_1d_equal_chunks(tensor_send))
         else:
             object_send_list.append(tensor_send)
@@ -158,7 +160,7 @@ def _communicate(object_send_next: Union[torch.Tensor, List[torch.Tensor]] = Non
     if object_send_next is not None:
         filling_ops_queue(object_send_next, dist.isend, next_rank, ops)
 
-    if len(ops) > 0:
+    if ops:
         reqs = dist.batch_isend_irecv(ops)
         for req in reqs:
             req.wait()

@@ -412,7 +412,8 @@ class ParallelContext(metaclass=SingletonMeta):
                 setattr(self, attr_name, ele['size'])
             else:
                 raise NotImplementedError(
-                    f'{"Parallel configuration does not support this kind of argument, please use int or dict"}')
+                    'Parallel configuration does not support this kind of argument, please use int or dict'
+                )
 
     def init_parallel_groups(self):
         """Initializes the parallel groups.
@@ -439,21 +440,18 @@ class ParallelContext(metaclass=SingletonMeta):
         # get the tensor parallel mode and check
         tensor_parallel_mode = None
         if parallel_config is not None and 'tensor' in \
-                parallel_config and 'mode' in parallel_config['tensor']:
+                    parallel_config and 'mode' in parallel_config['tensor']:
             tensor_parallel_mode = parallel_config['tensor']['mode']
         assert tensor_parallel_mode in ALLOWED_MODES, \
-            f"mode in the parallel config must be set to one of {ALLOWED_MODES}"
+                f"mode in the parallel config must be set to one of {ALLOWED_MODES}"
         env.mode = tensor_parallel_mode
 
         self.check_sanity()
 
-        pg_init = []
-        # LSG: init data parallel process group for compatibility with other parallel module such as zero
-        pg_init.append(dict(type=INITIALIZER_MAPPING['data']))
-
-        # LSG: init model parallel process group for compatibility with amp and clip grad
-        pg_init.append(dict(type=INITIALIZER_MAPPING['model']))
-
+        pg_init = [
+            dict(type=INITIALIZER_MAPPING['data']),
+            dict(type=INITIALIZER_MAPPING['model']),
+        ]
         if self.pipeline_parallel_size > 1:
             pg_init.append(dict(type=INITIALIZER_MAPPING['pipeline']))
         pg_init.append(dict(type=INITIALIZER_MAPPING['tensor']))
@@ -534,10 +532,7 @@ class ParallelContext(metaclass=SingletonMeta):
         global_rank = self.get_global_rank()
 
         if torch.cuda.is_available():
-            # create random seed for different parallel modes
-            # data parallel seed are kept the same
-            parallel_seed = seed
-            add_seed(ParallelMode.DATA, parallel_seed)
+            add_seed(ParallelMode.DATA, seed)
 
             # model parallel seeds are different across ranks
             pipeline_offset = self._local_ranks.get(ParallelMode.PIPELINE, 0)
@@ -552,21 +547,20 @@ class ParallelContext(metaclass=SingletonMeta):
 
             set_mode(ParallelMode.DATA)
             seeds = get_seeds()
-            seed_str = ', '.join([f'{k}: {v}' for k, v in seeds.items()])
-
             if self._verbose:
+                seed_str = ', '.join([f'{k}: {v}' for k, v in seeds.items()])
+
                 self._logger.info(f"initialized seed on rank {global_rank}, "
                                   f"numpy: {seed}, python random: {seed}, {seed_str},"
                                   f"the default parallel seed is {ParallelMode.DATA}.")
-        else:
-            if self._verbose:
-                self._logger.info(
-                    f"initialized seed on rank {global_rank}, "
-                    f"numpy: {seed}, python random: {seed}, pytorch: {seed}",
-                    ranks=[0])
-                self._logger.info(
-                    'WARNING: CUDA is not available, thus CUDA RNG cannot be used to track CUDA random number states',
-                    ranks=[0])
+        elif self._verbose:
+            self._logger.info(
+                f"initialized seed on rank {global_rank}, "
+                f"numpy: {seed}, python random: {seed}, pytorch: {seed}",
+                ranks=[0])
+            self._logger.info(
+                'WARNING: CUDA is not available, thus CUDA RNG cannot be used to track CUDA random number states',
+                ranks=[0])
 
     def set_virtual_pipeline_parallel_size(self, size):
         self.virtual_pipeline_parallel_size = size

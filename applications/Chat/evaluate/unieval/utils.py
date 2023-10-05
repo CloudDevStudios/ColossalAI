@@ -114,8 +114,7 @@ def convert_data_to_unieval_format(output_list, src_list=None, ref_list=None):
     """
     json_data = []
     for i in range(len(output_list)):
-        cur = {}
-        cur['system_output'] = output_list[i]
+        cur = {'system_output': output_list[i]}
         if src_list is not None:
             cur['source'] = src_list[i]
         if ref_list is not None:
@@ -199,7 +198,7 @@ def analyze_unieval_results(results_path: str, save_path: str) -> None:
             model_name = file_name.split("_results.csv")[0]
             all_statistics[model_name] = read_unieval_results(results_path, file_name)
 
-    if len(list(all_statistics.keys())) == 0:
+    if not list(all_statistics.keys()):
         raise Exception(f'There are no csv files in the given directory "{results_path}"!')
 
     frame_all = {"model": [], "category": [], "metric": [], "score": []}
@@ -225,11 +224,7 @@ def analyze_unieval_results(results_path: str, save_path: str) -> None:
     frame_all = pd.DataFrame(frame_all)
     frame_all.to_csv(os.path.join(save_path, "unieval_statistics.csv"))
 
-    for metric in tqdm.tqdm(
-            frame_per_metric.keys(),
-            desc=f"UniEval metrics: ",
-            total=len(frame_per_metric.keys()),
-    ):
+    for metric in tqdm.tqdm(frame_per_metric.keys(), desc="UniEval metrics: ", total=len(frame_per_metric.keys())):
         data = pd.DataFrame(frame_per_metric[metric])
 
         sns.set()

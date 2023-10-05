@@ -158,9 +158,12 @@ def battle(answer1: List[Dict], answer2: List[Dict], prompt_dict: Dict[str, Any]
             future = executor.submit(get_battle_result, sys_prompt, prompt, answer_id, 2048)
             futures.append(future)
 
-        for future in tqdm.tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
-            evaluations.append(future.result())
-
+        evaluations.extend(
+            future.result()
+            for future in tqdm.tqdm(
+                concurrent.futures.as_completed(futures), total=len(futures)
+            )
+        )
     evaluations.sort(key=lambda x: x["id"])
 
     return evaluations
@@ -327,10 +330,17 @@ def multiturn_chat_completion(user_messages: List[str], model: str, max_tokens: 
         messages_to_send = []
 
         for j in range(i):
-            messages_to_send.append(fill_in_message("user", user_messages[j]))
-            messages_to_send.append(
-                fill_in_message("assistant", assistant_responses[j]["choices"][0]["message"]["content"]))
-
+            messages_to_send.extend(
+                (
+                    fill_in_message("user", user_messages[j]),
+                    fill_in_message(
+                        "assistant",
+                        assistant_responses[j]["choices"][0]["message"][
+                            "content"
+                        ],
+                    ),
+                )
+            )
         # Length of user messages == Length of assistant messages + 1
         # Because we always expect the api to response
         messages_to_send.append(fill_in_message("user", user_messages[i]))
@@ -387,7 +397,7 @@ def get_gpt_evaluation_without_logprobs(prompt: Dict[str, Any],
             raise Exception(
                 f"Unsupported metric {metric} for category {inst['category']}! You should add this metric in the prompt file!"
             )
-        for i in range(MAX_API_RETRY):
+        for _ in range(MAX_API_RETRY):
             try:
                 prompt_reference = "" if reference is None else reference_template(metric, language, reference)
 
@@ -398,15 +408,21 @@ def get_gpt_evaluation_without_logprobs(prompt: Dict[str, Any],
                     steps=prompt["CoT"][metric],
                 )
 
-                if prompt_reference:
-                    # Do a 2-round conversation
-                    response = multiturn_chat_completion([prompt_1st_round, prompt_reference],
-                                                         model,
-                                                         max_tokens=max_tokens,
-                                                         turns=2)
-                else:
-                    response = multiturn_chat_completion([prompt_1st_round], model, max_tokens=max_tokens, turns=1)
-
+                response = (
+                    multiturn_chat_completion(
+                        [prompt_1st_round, prompt_reference],
+                        model,
+                        max_tokens=max_tokens,
+                        turns=2,
+                    )
+                    if prompt_reference
+                    else multiturn_chat_completion(
+                        [prompt_1st_round],
+                        model,
+                        max_tokens=max_tokens,
+                        turns=1,
+                    )
+                )
                 inst["evaluation"][metric] = {
                     "response": response["choices"][0]["message"]["content"],
                     "logprobs": None,
@@ -458,7 +474,7 @@ def get_gpt_evaluation_with_logprobs(prompt: Dict[str, Any],
             raise Exception(
                 f"Unsupported metric {metric} for category {inst['category']}! You should add this metric in the prompt file!"
             )
-        for i in range(MAX_API_RETRY):
+        for _ in range(MAX_API_RETRY):
             try:
                 response = openai.Completion.create(
                     model="text-davinci-003",
@@ -519,7 +535,7 @@ def evaluate(answers: List[Dict],
 
     evaluations = []
 
-    metrics_str = ", ".join(x for x in metrics)
+    metrics_str = ", ".join(metrics)
     print(f"Category {category}'s metrics are {metrics_str}.")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
@@ -540,13 +556,14 @@ def evaluate(answers: List[Dict],
 
             futures.append(future)
 
-        for future in tqdm.tqdm(
+        evaluations.extend(
+            future.result()
+            for future in tqdm.tqdm(
                 concurrent.futures.as_completed(futures),
                 desc=f"{category}: ",
                 total=len(futures),
-        ):
-            evaluations.append(future.result())
-
+            )
+        )
     evaluations.sort(key=lambda x: x["id"])
 
     print(f"{category} done.")
@@ -585,9 +602,7 @@ def calculate_scores_form_logprobs(logprobs: Dict[str, Any]) -> float:
         if len(results) == 1:
             prob[int(results[0]) - 1] = prob[int(results[0]) - 1] + np.exp(value)
 
-    score = np.dot(np.arange(1, 6), prob)
-
-    return score
+    return np.dot(np.arange(1, 6), prob)
 
 
 def calculate_scores_form_response(response: str, evaluation: Dict[str, Any]) -> int:
@@ -651,7 +666,7 @@ def save_gpt_evaluation_statistics(model_name: str, evaluations: List[Dict], sav
     data_per_category = {}
     for evaluation in evaluations:
         category = evaluation["category"]
-        if evaluation["category"] in data_per_category.keys():
+        if category in data_per_category:
             data_per_category[category].append(evaluation)
         else:
             data_per_category[category] = [evaluation]
@@ -675,11 +690,16 @@ def save_gpt_evaluation_statistics(model_name: str, evaluations: List[Dict], sav
         statistics = {}
         for metric in metrics:
             arg_sort = np.argsort(scores[metric])
-            statistics[metric] = {}
-            statistics[metric]["avg_score"] = sum(scores[metric]) / len(data)
-            statistics[metric]["best_3"] = {data[i]["id"]: scores[metric][i] for i in arg_sort[-3:][::-1]}
-            statistics[metric]["worst_3"] = {data[i]["id"]: scores[metric][i] for i in arg_sort[:3]}
-
+            statistics[metric] = {
+                "avg_score": sum(scores[metric]) / len(data),
+                "best_3": {
+                    data[i]["id"]: scores[metric][i]
+                    for i in arg_sort[-3:][::-1]
+                },
+                "worst_3": {
+                    data[i]["id"]: scores[metric][i] for i in arg_sort[:3]
+                },
+            }
         all_statistics[category] = statistics
 
     jdump(
@@ -707,7 +727,7 @@ def analyze_gpt_evaluation_statistics(statistics_path: str, save_path: str) -> N
             model_name = file_name.split("_evaluation_statistics.json")[0]
             all_statistics[model_name] = jload(os.path.join(statistics_path, file_name))
 
-    if len(list(all_statistics.keys())) == 0:
+    if not list(all_statistics.keys()):
         raise Exception(f'There are no statistics in the given directory "{statistics_path}"!')
 
     frame_all = {
@@ -750,11 +770,7 @@ def analyze_gpt_evaluation_statistics(statistics_path: str, save_path: str) -> N
     frame_all = pd.DataFrame(frame_all)
     frame_all.to_csv(os.path.join(save_path, "gpt_evaluation_statistics.csv"))
 
-    for category in tqdm.tqdm(
-            frame_per_category.keys(),
-            desc=f"GPT evaluation: ",
-            total=len(frame_per_category.keys()),
-    ):
+    for category in tqdm.tqdm(frame_per_category.keys(), desc="GPT evaluation: ", total=len(frame_per_category.keys())):
         data = pd.DataFrame(frame_per_category[category])
 
         sns.set()

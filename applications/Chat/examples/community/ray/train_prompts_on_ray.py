@@ -53,8 +53,15 @@ class ExperienceMaker:
         advantage = reward - value
         if advantage.ndim == 1:
             advantage = advantage.unsqueeze(-1)
-        experience = Experience(sequences, action_log_probs, value, reward, advantage, attention_mask, action_mask)
-        return experience
+        return Experience(
+            sequences,
+            action_log_probs,
+            value,
+            reward,
+            advantage,
+            attention_mask,
+            action_mask,
+        )
 
 
 class DistributedTorchRayActor:
@@ -221,7 +228,7 @@ class RayPPOActor(TrainablePPORole):
         self._strategy.backward(actor_loss, self._model, self._optimizer)
         self._strategy.optimizer_step(self._optimizer)
         self._optimizer.zero_grad()
-        logging.info("actor_loss: {}".format(actor_loss))
+        logging.info(f"actor_loss: {actor_loss}")
 
     def save_checkpoint(self, save_path, should_save_optimizer: bool):
         if self._rank == 0:
@@ -241,8 +248,7 @@ class RayPPOActor(TrainablePPORole):
                                            return_action_mask=False,
                                            num_return_sequences=num_return_sequences)
         token_list = list(sequence.data[0])
-        output = " ".join([self._model_tokenizer.decode(token) for token in token_list])
-        return output
+        return " ".join([self._model_tokenizer.decode(token) for token in token_list])
 
 
 @ray.remote(num_gpus=1)
@@ -262,7 +268,7 @@ class RayPPOCritic(TrainablePPORole):
         self._strategy.backward(critic_loss, self._model, self._optimizer)
         self._strategy.optimizer_step(self._optimizer)
         self._optimizer.zero_grad()
-        logging.info("critic_loss: {}".format(critic_loss))
+        logging.info(f"critic_loss: {critic_loss}")
 
     @torch.no_grad()
     def calculate_value(self, sequence_attention_action_mask):
@@ -366,8 +372,12 @@ class PPOActorRayActorGroup(TrainableModelRayActorGroup):
     def async_prepare_for_sequence_generation(self, model: str, pretrain: str, generation_kwargs: dict):
         refs = []
         for actor in self._actor_handlers:
-            refs.append(actor.load_tokenizer_from_pretrained.remote(model, pretrain))
-            refs.append(actor.setup_generate_kwargs.remote(generation_kwargs))
+            refs.extend(
+                (
+                    actor.load_tokenizer_from_pretrained.remote(model, pretrain),
+                    actor.setup_generate_kwargs.remote(generation_kwargs),
+                )
+            )
         return refs
 
     def load_csv_prompt_file_from_url_to_sampler(self, csv_url):
@@ -492,7 +502,7 @@ def main(args):
     experience_composition_refs = []
     time = 0
     for episode in range(num_episodes):
-        logging.info("episode {} started".format(episode))
+        logging.info(f"episode {episode} started")
         for _ in range(max_timesteps):
             time += 1
             # Experience queueing stage

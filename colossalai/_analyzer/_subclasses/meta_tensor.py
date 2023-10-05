@@ -21,9 +21,7 @@ def register_storage(r, data_ptr_fn=None):
 
 
 def _normalize_tuple(x):
-    if not isinstance(x, tuple):
-        return (x,)
-    return x
+    return (x, ) if not isinstance(x, tuple) else x
 
 
 # a hack of inplace execution in PyTorch
@@ -141,7 +139,7 @@ class MetaTensor(torch.Tensor):
 
         def replace(x):
             nonlocal device
-            if isinstance(x, str) or isinstance(x, _device):
+            if isinstance(x, (str, _device)):
                 device = x
                 return torch.device('meta')
             return x

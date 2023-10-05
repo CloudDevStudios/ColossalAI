@@ -283,9 +283,10 @@ class AsynTrainingSimulator(TrainingSimulator):
             flop_key = 'bwd_flop'
         comp_start_time = max(self.last_comp.end_time, reg_to_pref.get(
             region.r_id, ExecutionPeriod(0, 0)).end_time)
-        comp_end_time = comp_start_time + \
-                        sum([self._get_computing_overhead(node.meta.get(flop_key, 0))
-                             for node in region.nodes])
+        comp_end_time = comp_start_time + sum(
+            self._get_computing_overhead(node.meta.get(flop_key, 0))
+            for node in region.nodes
+        )
         comp_ep = ExecutionPeriod(
             start_time=comp_start_time, end_time=comp_end_time)
         reg_to_comp[region.r_id] = comp_ep
@@ -411,9 +412,7 @@ class AsynTrainingSimulator(TrainingSimulator):
             self.runtime_mem += region.param_size
             self.bwd_reg_flow[region.r_id, region.r_id] = True
 
-        # prefetch parameters of the region choiced
-        bwd_prefetch_region = region.bwd_prefetch_region
-        if bwd_prefetch_region:
+        if bwd_prefetch_region := region.bwd_prefetch_region:
             self.runtime_mem += bwd_prefetch_region.param_size
             self.bwd_reg_flow[region.r_id,
             bwd_prefetch_region.r_id] = True
@@ -429,7 +428,7 @@ class AsynTrainingSimulator(TrainingSimulator):
 
             self.runtime_mem -= calculate_fwd_out(node)
             self.runtime_mem += node.meta['bwd_mem_tmp'] + \
-                                node.meta['bwd_mem_out']
+                                    node.meta['bwd_mem_out']
             self.peak_mem = max(self.runtime_mem, self.peak_mem)
 
             # The memory savings of a node may be negative due to parameter prefetch.

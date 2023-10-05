@@ -111,10 +111,7 @@ class AMPOptimizer(ColossalaiOptimizer):
 
         combined_scale = loss_scale
 
-        if combined_scale == 1:
-            return -1
-        else:
-            return combined_scale
+        return -1 if combined_scale == 1 else combined_scale
 
     @property
     def loss_scale(self):
@@ -132,7 +129,7 @@ class AMPOptimizer(ColossalaiOptimizer):
         if found_inf:
             self.optim_state = OptimState.UNSCALED    # no need to unscale grad
             self.grad_scaler.update(found_inf)    # update gradient scaler
-            self._logger.info(f'Found overflow. Skip step')
+            self._logger.info('Found overflow. Skip step')
             self.zero_grad()    # reset all gradients
             self._update_fp16_params()
             return
@@ -158,7 +155,7 @@ class AMPOptimizer(ColossalaiOptimizer):
     def __init__optimizer(self):
 
         for group in self.optim.param_groups:
-            fake_params_list = list()
+            fake_params_list = []
 
             for param in group['params']:
                 region = self.region_manager.get_region(param)

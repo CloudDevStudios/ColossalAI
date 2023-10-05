@@ -187,8 +187,17 @@ if version.parse(torch.__version__) >= version.parse('1.12.0'):
     def meta__conv(input_tensor: torch.Tensor, weight: torch.Tensor, bias: torch.Tensor, stride: List[int],
                    padding: List[int], dilation: List[int], is_transposed: bool, output_padding: List[int], groups: int,
                    *extra_args):
-        out = meta_conv(input_tensor, weight, bias, stride, padding, dilation, is_transposed, output_padding, groups)
-        return out
+        return meta_conv(
+            input_tensor,
+            weight,
+            bias,
+            stride,
+            padding,
+            dilation,
+            is_transposed,
+            output_padding,
+            groups,
+        )
 
     @register_meta(aten.convolution_backward.default)
     def meta_conv_backward(grad_output: torch.Tensor, input: torch.Tensor, weight: torch.Tensor, bias_sizes, stride,
@@ -250,7 +259,7 @@ if version.parse(torch.__version__) >= version.parse('1.12.0'):
         hy = hx.new_empty([num_layers * num_directions, mini_batch, out_size])
 
         # TODO: Query cudnnGetRNNTrainingReserveSize (expose to python)
-        reserve_shape = 0 if train else 0
+        reserve_shape = 0
         reserve = input.new_empty(reserve_shape, dtype=torch.uint8)
 
         return output, hy, cy, reserve, weight_buf
@@ -386,7 +395,7 @@ if version.parse(torch.__version__) >= version.parse('1.12.0'):
             for i, index in enumerate(indices):
                 if index is not None:
                     assert index.dtype in [torch.long, torch.int8, torch.bool],\
-                        "tensors used as indices must be long, byte or bool tensors"
+                                "tensors used as indices must be long, byte or bool tensors"
                     if index.dtype in [torch.int8, torch.bool]:
                         nonzero = index.nonzero()
                         k = len(result)
@@ -425,9 +434,8 @@ if version.parse(torch.__version__) >= version.parse('1.12.0'):
                 elif state == 1:
                     if index is None:
                         state = 2
-                else:
-                    if index is not None:
-                        break
+                elif index is not None:
+                    break
             else:
                 has_contiguous_subspace = True
 

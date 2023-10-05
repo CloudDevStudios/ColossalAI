@@ -53,8 +53,7 @@ class BaseOffloadModule:
         args, kwargs = _cast_float(args, torch.half), _cast_float(kwargs, torch.half)
         self.model.zero_grad(set_to_none=True)
         self._pre_forward()
-        outputs = self.model(*args, **kwargs)
-        return outputs
+        return self.model(*args, **kwargs)
 
     def backward(self, loss):
         loss.backward()

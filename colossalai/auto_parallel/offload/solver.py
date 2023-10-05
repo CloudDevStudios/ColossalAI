@@ -22,15 +22,15 @@ def benchmark_func(func, number=1, repeat=1, warmup=3):
     benchmark data transfer cost.
     """
 
-    for i in range(warmup):
+    for _ in range(warmup):
         func()
 
     costs = []
 
-    for i in range(repeat):
+    for _ in range(repeat):
         torch.cuda.synchronize()
         begin = time.time()
-        for i in range(number):
+        for _ in range(number):
             func()
         torch.cuda.synchronize()
         costs.append((time.time() - begin) / number)
@@ -109,10 +109,14 @@ class Solver(ABC):
             bool: whether profit_a is greater than profit_b.
         """
 
-        for val1, val2 in zip(profit_a, profit_b):
-            if val1 != val2:
-                return val1 > val2
-        return False
+        return next(
+            (
+                val1 > val2
+                for val1, val2 in zip(profit_a, profit_b)
+                if val1 != val2
+            ),
+            False,
+        )
 
     def _update_state(self, best_ts: TrainingSimulator):
         """

@@ -35,14 +35,17 @@ class HybridParallelModule(ModelWrapper):
         module, self.shared_params = shardformer.optimize(module)
         # TODO(ver217): add input type cast
         self.shared_param_process_groups = []
-        for shared_param in self.shared_params:
-            if len(shared_param) > 0:
-                self.shared_param_process_groups.append(
-                    self.stage_manager.init_process_group_by_stages(list(shared_param.keys())))
-        if precision == 'fp16':
-            module = module.half().cuda()
-        elif precision == 'bf16':
+        self.shared_param_process_groups.extend(
+            self.stage_manager.init_process_group_by_stages(
+                list(shared_param.keys())
+            )
+            for shared_param in self.shared_params
+            if len(shared_param) > 0
+        )
+        if precision == 'bf16':
             module = module.to(dtype=torch.bfloat16).cuda()
+        elif precision == 'fp16':
+            module = module.half().cuda()
         else:
             module = module.cuda()    # train without AMP
         # TODO(ver217): support TP+DP
@@ -181,7 +184,7 @@ class HybridParallelPlugin(PipelinePluginBase):
         self.pg_mesh = ProcessGroupMesh(self.dp_size, self.pp_size, self.tp_size)
         self.stage_manager = None
         self.schedule = None
-        assert zero_stage in (0, 1, 2)
+        assert zero_stage in {0, 1, 2}
         if self.pp_size > 1:
             assert num_microbatches is not None, 'num_microbatches must be specified when using pipeline parallelism'
             assert self.zero_stage <= 1, 'zero stage must be 0 or 1 when using pipeline parallelism'

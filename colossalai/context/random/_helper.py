@@ -30,14 +30,13 @@ def get_states(copy=False):
     """
     states = _SEED_MANAGER.seed_states
 
-    if copy:
-        new_states = dict()
-
-        for parallel_mode, state in states.items():
-            new_states[parallel_mode] = state.clone()
-        return new_states
-    else:
+    if not copy:
         return _SEED_MANAGER.seed_states
+    new_states = dict()
+
+    for parallel_mode, state in states.items():
+        new_states[parallel_mode] = state.clone()
+    return new_states
 
 
 def get_current_mode():

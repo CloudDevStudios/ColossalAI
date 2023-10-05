@@ -94,8 +94,7 @@ class UniEvaluator:
                 print(f'target: {tgt_list}')
                 exit(0)
 
-        score_list = []
-        for i in range(len(pos_score_list)):
-            score_list.append(pos_score_list[i] / (pos_score_list[i] + neg_score_list[i]))
-
-        return score_list
+        return [
+            pos_score_list[i] / (pos_score_list[i] + neg_score_list[i])
+            for i in range(len(pos_score_list))
+        ]

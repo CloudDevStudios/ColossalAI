@@ -119,7 +119,9 @@ class SFTTrainer(SLTrainer):
         self.total_loss = 0
         self.no_epoch_bar = True
         self.step_bar = tqdm.trange(
-            len(self.train_dataloader) // self.accumulation_steps * self.max_epochs,
-            desc=f'steps',
-            disable=not is_rank_0()
+            len(self.train_dataloader)
+            // self.accumulation_steps
+            * self.max_epochs,
+            desc='steps',
+            disable=not is_rank_0(),
         )

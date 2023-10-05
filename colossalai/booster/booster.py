@@ -78,18 +78,16 @@ class Booster:
             self.mixed_precision = None
         elif mixed_precision is None:
             self.mixed_precision = None
+        elif isinstance(mixed_precision, str):
+            # the user will take the default arguments for amp training
+            self.mixed_precision = mixed_precision_factory(mixed_precision)
+        elif isinstance(mixed_precision, MixedPrecision):
+            # the user can customize the arguments by passing the precision object
+            self.mixed_precision = mixed_precision
         else:
-            # validate and set precision
-            if isinstance(mixed_precision, str):
-                # the user will take the default arguments for amp training
-                self.mixed_precision = mixed_precision_factory(mixed_precision)
-            elif isinstance(mixed_precision, MixedPrecision):
-                # the user can customize the arguments by passing the precision object
-                self.mixed_precision = mixed_precision
-            else:
-                raise ValueError(
-                    f'Expected the argument mixed_precision to be a string or an instance of Precision, but got {type(mixed_precision)}.'
-                )
+            raise ValueError(
+                f'Expected the argument mixed_precision to be a string or an instance of Precision, but got {type(mixed_precision)}.'
+            )
 
         if self.plugin is not None and self.plugin.control_checkpoint_io():
             self.checkpoint_io = self.plugin.get_checkpoint_io()
@@ -166,7 +164,9 @@ class Booster:
         Returns:
             contextmanager: Context to disable gradient synchronization.
         """
-        assert self.plugin is not None, f'no_sync is only enabled when a plugin is provided and the plugin supports no_sync.'
+        assert (
+            self.plugin is not None
+        ), 'no_sync is only enabled when a plugin is provided and the plugin supports no_sync.'
         assert self.plugin.support_no_sync(), f'The plugin {self.plugin.__class__.__name__} does not support no_sync.'
         return self.plugin.no_sync(model, optimizer)
 

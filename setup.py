@@ -146,7 +146,7 @@ if not IS_NIGHTLY:
     package_name = 'colossalai'
 else:
     # use date as the nightly version
-    version = datetime.today().strftime('%Y.%m.%d')
+    version = datetime.now().strftime('%Y.%m.%d')
     package_name = 'colossalai-nightly'
 
 setup(name=package_name,

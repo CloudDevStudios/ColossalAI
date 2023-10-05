@@ -37,12 +37,12 @@ def train_step(strategy: Strategy,
 
 def run_test_checkpoint(strategy_name: str,
                         shard: bool):
-    if strategy_name == "ddp":
-        strategy = DDPStrategy()
-    elif strategy_name == "colossalai_gemini":
+    if strategy_name == "colossalai_gemini":
         strategy = GeminiStrategy(placement_policy="cuda", initial_scale=2**5)
     elif strategy_name == "colossalai_zero2":
         strategy = LowLevelZeroStrategy(stage=2, placement_policy="cuda")
+    elif strategy_name == "ddp":
+        strategy = DDPStrategy()
     else:
         raise ValueError(f"Unsupported strategy '{strategy_name}'")
 
@@ -60,8 +60,7 @@ def run_test_checkpoint(strategy_name: str,
         dist.broadcast_object_list(rank0_dirname)
         rank0_dirname = rank0_dirname[0]
 
-        model_path = os.path.join(
-            rank0_dirname, "model" if shard else f"model.pt")
+        model_path = os.path.join(rank0_dirname, "model" if shard else "model.pt")
         strategy.save_model(actor, model_path, only_rank0=not shard)
         optim_path = os.path.join(
             rank0_dirname, "optim" if shard else "optim.pt")

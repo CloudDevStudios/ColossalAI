@@ -76,19 +76,24 @@ def main(args):
 
     # configure Experience Maker
     experience_holder_refs = [
-        ExperienceMakerHolder.options(name=f"maker{i}", num_gpus=1, max_concurrency=2).remote(
+        ExperienceMakerHolder.options(
+            name=f"maker{i}", num_gpus=1, max_concurrency=2
+        ).remote(
             detached_trainer_name_list=[
                 f'trainer{x}'
-                for x in get_receivers_per_sender(i, args.num_makers, args.num_trainers, allow_idle_sender=False)
+                for x in get_receivers_per_sender(
+                    i,
+                    args.num_makers,
+                    args.num_trainers,
+                    allow_idle_sender=False,
+                )
             ],
             strategy_fn=partial(get_strategy_from_args, args.maker_strategy),
             model_fn=model_fn,
             env_info=env_info_maker,
             kl_coef=0.1,
             debug=args.debug,
-            update_lora_weights=not (args.lora_rank == 0),
-    # sync_models_from_trainers=True,
-    # generation kwargs:
+            update_lora_weights=args.lora_rank != 0,
             max_length=512,
             do_sample=True,
             temperature=1.0,
@@ -108,10 +113,17 @@ def main(args):
 
     # configure Trainer
     trainer_refs = [
-        DetachedPPOTrainer.options(name=f"trainer{i}", num_gpus=1, max_concurrency=2).remote(
+        DetachedPPOTrainer.options(
+            name=f"trainer{i}", num_gpus=1, max_concurrency=2
+        ).remote(
             experience_maker_holder_name_list=[
                 f"maker{x}"
-                for x in get_receivers_per_sender(i, args.num_trainers, args.num_makers, allow_idle_sender=True)
+                for x in get_receivers_per_sender(
+                    i,
+                    args.num_trainers,
+                    args.num_makers,
+                    allow_idle_sender=True,
+                )
             ],
             strategy_fn=partial(get_strategy_from_args, args.trainer_strategy),
             model_fn=trainer_model_fn,
@@ -120,7 +132,7 @@ def main(args):
             buffer_limit=16,
             eval_performance=True,
             debug=args.debug,
-            update_lora_weights=not (args.lora_rank == 0),
+            update_lora_weights=args.lora_rank != 0,
         )
         for i, env_info_trainer in enumerate(env_info_trainers)
     ]

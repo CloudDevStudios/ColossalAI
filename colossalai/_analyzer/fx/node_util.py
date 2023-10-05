@@ -38,7 +38,7 @@ def compute_size_in_bytes(elem: Union[torch.Tensor, Dict, List, Tuple, int]) -> 
     elif isinstance(elem, dict):
         value_list = [v for _, v in elem.items()]
         nbytes += compute_size_in_bytes(value_list)
-    elif isinstance(elem, tuple) or isinstance(elem, list) or isinstance(elem, set):
+    elif isinstance(elem, (tuple, list, set)):
         for e in elem:
             nbytes += compute_size_in_bytes(e)
     return nbytes

@@ -48,8 +48,11 @@ def initialize_device_mesh(device_mesh_info: DeviceMeshInfo):
     else:
         logical_mesh_id = physical_mesh.reshape(logical_mesh_shape)
 
-    device_mesh = DeviceMesh(physical_mesh_id=physical_mesh, logical_mesh_id=logical_mesh_id, init_process_group=True)
-    return device_mesh
+    return DeviceMesh(
+        physical_mesh_id=physical_mesh,
+        logical_mesh_id=logical_mesh_id,
+        init_process_group=True,
+    )
 
 
 class DeviceMeshManager:
@@ -68,12 +71,11 @@ class DeviceMeshManager:
             name (str): name of the device mesh
             device_mesh_info (DeviceMeshInfo): the information used to initialize the device mesh
        """
-        if name not in self.device_mesh_store:
-            device_mesh = initialize_device_mesh(device_mesh_info)
-            self.device_mesh_store[name] = device_mesh
-            return device_mesh
-        else:
+        if name in self.device_mesh_store:
             raise ValueError(f'Device mesh {name} already exists.')
+        device_mesh = initialize_device_mesh(device_mesh_info)
+        self.device_mesh_store[name] = device_mesh
+        return device_mesh
 
     def get(self, name: str) -> DeviceMesh:
         """
@@ -97,13 +99,12 @@ class DeviceMeshManager:
         Args:
             name (str): name of the device mesh
         """
-        if name in self.device_mesh_store:
-            for pgs in self.device_mesh_store[name].process_groups_dict.values():
-                for pg in pgs:
-                    dist.destroy_process_group(pg)
-            del self.device_mesh_store[name]
-        else:
+        if name not in self.device_mesh_store:
             raise ValueError(f'Device mesh {name} does not exist.')
+        for pgs in self.device_mesh_store[name].process_groups_dict.values():
+            for pg in pgs:
+                dist.destroy_process_group(pg)
+        del self.device_mesh_store[name]
 
     def destroy_all(self):
         """

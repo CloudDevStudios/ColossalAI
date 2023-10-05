@@ -23,7 +23,7 @@ class EstimateMemory(object):
         """
         x = x.meta["tensor_meta"]
         if not hasattr(x, "numel"):
-            out = sum([i.numel * torch.tensor([], dtype=i.dtype).element_size() for i in x])
+            out = sum(i.numel * torch.tensor([], dtype=i.dtype).element_size() for i in x)
         else:
             out = x.numel * torch.tensor([], dtype=x.dtype).element_size()
         out = float(out) / 1024**2
@@ -109,10 +109,7 @@ class EstimateMemory(object):
             return 1.0
         node_shape = get_node_shape(node)
         chunk_dim = chunk_node_dim[node]["chunk_dim"]
-        if chunk_dim is None:
-            return 1.0
-        else:
-            return chunk_size / float(node_shape[chunk_dim])
+        return 1.0 if chunk_dim is None else chunk_size / float(node_shape[chunk_dim])
 
     def _print_compute_op_mem_log(self, log, nodes, title=None):
         if title:
@@ -138,7 +135,7 @@ class EstimateMemory(object):
         """
         sum all memory of active nodes
         """
-        out = [i for i in active_nodes.values()]
+        out = list(active_nodes.values())
         out = sum(out)
         return out
 
@@ -166,7 +163,7 @@ class EstimateMemory(object):
         node_mgr = NodeMgr(node_list)
         delete_node_dict = self._build_delete_node_dict(node_mgr)
 
-        use_chunk = True if chunk_infos is not None else False
+        use_chunk = chunk_infos is not None
         chunk_within = False
         chunk_region_idx = None
         chunk_ratio = 1    # use it to estimate chunk mem
@@ -201,15 +198,15 @@ class EstimateMemory(object):
             act_memory = self._get_memory_from_active_nodes(active_nodes)
 
             # if node is placeholder, just add the size of the node
-            if node.op == "placeholder":
+            if (
+                node.op == "placeholder"
+                or node.op != "placeholder"
+                and node.op != "output"
+                and is_non_memory_node(node)
+            ):
                 act_memory_peak_log.append(act_memory)
-            # skip output
             elif node.op == "output":
                 continue
-            # no change for non compute node
-            elif is_non_memory_node(node):
-                act_memory_peak_log.append(act_memory)
-            # node is a compute op, calculate tmp
             else:
                 # forward memory
                 # TODO: contiguous_memory still not accurate for matmul, view, reshape and transpose

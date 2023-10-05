@@ -72,7 +72,7 @@ class SeedManager:
                 or the seed for `parallel_mode` has been added.
         """
         assert isinstance(parallel_mode, ParallelMode), 'A valid ParallelMode must be provided'
-        if overwrite is False:
+        if not overwrite:
             assert parallel_mode not in self._seed_states, f'The seed for {parallel_mode} has been added'
         elif parallel_mode in self._seed_states:
             print(f"Warning: {parallel_mode} seed has been overwritten.", flush=True)

@@ -25,9 +25,7 @@ class Phase(Enum):
 
 
 def normalize_tuple(x):
-    if not isinstance(x, tuple):
-        return (x,)
-    return x
+    return (x, ) if not isinstance(x, tuple) else x
 
 
 def _format_flops(flop):
@@ -116,14 +114,15 @@ def flop_count(module: Union[torch.nn.Module, Callable] = None, *args, verbose: 
 
     def create_backwards_push(name):
 
+
+
+
         class PushState(torch.autograd.Function):
 
             @staticmethod
             def forward(ctx, *args):
                 args = tree_map(lambda x: x.clone() if isinstance(x, torch.Tensor) else x, args)
-                if len(args) == 1:
-                    return args[0]
-                return args
+                return args[0] if len(args) == 1 else args
 
             @staticmethod
             def backward(ctx, *grad_outs):
@@ -131,18 +130,20 @@ def flop_count(module: Union[torch.nn.Module, Callable] = None, *args, verbose: 
                 parents.append(name)
                 return grad_outs
 
+
         return PushState.apply
 
     def create_backwards_pop(name):
+
+
+
 
         class PopState(torch.autograd.Function):
 
             @staticmethod
             def forward(ctx, *args):
                 args = tree_map(lambda x: x.clone() if isinstance(x, torch.Tensor) else x, args)
-                if len(args) == 1:
-                    return args[0]
-                return args
+                return args[0] if len(args) == 1 else args
 
             @staticmethod
             def backward(ctx, *grad_outs):
@@ -150,6 +151,7 @@ def flop_count(module: Union[torch.nn.Module, Callable] = None, *args, verbose: 
                 assert (parents[-1] == name)
                 parents.pop()
                 return grad_outs
+
 
         return PopState.apply
 
@@ -186,8 +188,8 @@ def flop_count(module: Union[torch.nn.Module, Callable] = None, *args, verbose: 
             handle.remove()
 
     def display_flops():
-        for mod in flop_counts.keys():
-            print(f"Module: ", mod)
+        for mod in flop_counts:
+            print("Module: ", mod)
             for k, v in flop_counts[mod].items():
                 print('\t', k, _format_flops(v))
             print()
@@ -257,8 +259,7 @@ def matmul_flop_jit(inputs: List[Any], outputs: List[Any]) -> Number:
 
         # expand the shape of the vector to [batch size, 1]
         input_shapes[-1] = torch.Size([input_shapes[-1][-1], 1])
-    flops = reduce(operator.mul, input_shapes[0]) * input_shapes[-1][-1]
-    return flops
+    return reduce(operator.mul, input_shapes[0]) * input_shapes[-1][-1]
 
 
 def addmm_flop_jit(inputs: List[Any], outputs: List[Any]) -> Number:
@@ -274,8 +275,7 @@ def addmm_flop_jit(inputs: List[Any], outputs: List[Any]) -> Number:
     assert len(input_shapes[1]) == 2, input_shapes[1]
     batch_size, input_dim = input_shapes[0]
     output_dim = input_shapes[1][1]
-    flops = batch_size * input_dim * output_dim
-    return flops
+    return batch_size * input_dim * output_dim
 
 
 def linear_flop_jit(inputs: List[Any], outputs: List[Any]) -> Number:
@@ -284,12 +284,11 @@ def linear_flop_jit(inputs: List[Any], outputs: List[Any]) -> Number:
     """
     # Inputs is a list of length 3; unlike aten::addmm, it is the first
     # two elements that are relevant.
-    input_shapes = [v.shape for v in inputs[0:2]]
+    input_shapes = [v.shape for v in inputs[:2]]
     # input_shapes[0]: [dim0, dim1, ..., input_feature_dim]
     # input_shapes[1]: [output_feature_dim, input_feature_dim]
     assert input_shapes[0][-1] == input_shapes[1][-1]
-    flops = reduce(operator.mul, input_shapes[0]) * input_shapes[1][0]
-    return flops
+    return reduce(operator.mul, input_shapes[0]) * input_shapes[1][0]
 
 
 def bmm_flop_jit(inputs: List[Any], outputs: List[Any]) -> Number:
@@ -302,8 +301,7 @@ def bmm_flop_jit(inputs: List[Any], outputs: List[Any]) -> Number:
     input_shapes = [v.shape for v in inputs]
     n, c, t = input_shapes[0]
     d = input_shapes[-1][-1]
-    flops = n * c * t * d
-    return flops
+    return n * c * t * d
 
 
 def conv_flop_count(
@@ -327,8 +325,11 @@ def conv_flop_count(
     """
     batch_size = x_shape[0]
     conv_shape = (x_shape if transposed else out_shape)[2:]
-    flops = batch_size * reduce(operator.mul, w_shape) * reduce(operator.mul, conv_shape)
-    return flops
+    return (
+        batch_size
+        * reduce(operator.mul, w_shape)
+        * reduce(operator.mul, conv_shape)
+    )
 
 
 def conv_flop_jit(inputs: List[Any], outputs: List[Any]):

@@ -26,16 +26,16 @@ class RewardModel(LoRAModule):
         self.model = model
         self.convert_to_lora()
 
-        if value_head is not None:
-            if value_head.out_features != 1:
-                raise ValueError("The value head of reward model's output dim should be 1!")
-            self.value_head = value_head
-        else:
+        if value_head is None:
             self.value_head = nn.Linear(model.config.n_embd, 1)
+
+        elif value_head.out_features != 1:
+            raise ValueError("The value head of reward model's output dim should be 1!")
+        else:
+            self.value_head = value_head
 
     def forward(self, sequences: torch.LongTensor, attention_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         outputs = self.model(sequences, attention_mask=attention_mask)
         last_hidden_states = outputs['last_hidden_state']
         values = self.value_head(last_hidden_states)[:, :-1]
-        value = values.mean(dim=1).squeeze(1)    # ensure shape is (B)
-        return value
+        return values.mean(dim=1).squeeze(1)

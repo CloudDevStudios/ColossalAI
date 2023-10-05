@@ -7,20 +7,19 @@ import torch.nn as nn
 from packaging import version
 from torch.distributed import ProcessGroup
 
-if version.parse(torch.__version__) >= version.parse('1.12.0'):
-    from torch.distributed.fsdp import FullStateDictConfig
-    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-    from torch.distributed.fsdp import StateDictType
-    from torch.distributed.fsdp.fully_sharded_data_parallel import (
-        BackwardPrefetch,
-        CPUOffload,
-        FullStateDictConfig,
-        MixedPrecision,
-        ShardingStrategy,
-    )
-else:
+if version.parse(torch.__version__) < version.parse('1.12.0'):
     raise RuntimeError("FSDP is not supported while torch version under 1.12.0.")
 
+from torch.distributed.fsdp import FullStateDictConfig
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import StateDictType
+from torch.distributed.fsdp.fully_sharded_data_parallel import (
+    BackwardPrefetch,
+    CPUOffload,
+    FullStateDictConfig,
+    MixedPrecision,
+    ShardingStrategy,
+)
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 from torch.utils.data import DataLoader

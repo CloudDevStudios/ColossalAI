@@ -77,8 +77,7 @@ class LogSigLoss(nn.Module):
     def forward(self, chosen_reward: torch.Tensor, reject_reward: torch.Tensor) -> torch.Tensor:
         probs = torch.sigmoid(chosen_reward - reject_reward)
         log_probs = torch.log(probs)
-        loss = -log_probs.mean()
-        return loss
+        return -log_probs.mean()
 
 
 class LogExpLoss(nn.Module):
@@ -88,5 +87,4 @@ class LogExpLoss(nn.Module):
     """
 
     def forward(self, chosen_reward: torch.Tensor, reject_reward: torch.Tensor) -> torch.Tensor:
-        loss = torch.log(1 + torch.exp(reject_reward - chosen_reward)).mean()
-        return loss
+        return torch.log(1 + torch.exp(reject_reward - chosen_reward)).mean()
